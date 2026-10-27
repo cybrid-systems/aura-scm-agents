@@ -1,0 +1,41 @@
+;; Mock supply-chain world for the main demo: parts, BOM graph, suppliers, inventory,
+;; and the historical operational events Profit Forensics reads.
+
+;; node -> attributes. on-hand: units in stock; daily: current daily usage;
+;; supplier / alt: current and qualified alternative supplier; cost: unit cost.
+(define nodes (hash
+  "BRK-200" (hash "kind" "finished" "name" "Brake module (OEM-A)"   "on-hand" 5200  "daily" 1000 "supplier" "PLANT-1"  "alt" "-"        "cost" 260)
+  "KNU-55"  (hash "kind" "finished" "name" "Steering knuckle (OEM-B)" "on-hand" 7600 "daily" 800  "supplier" "PLANT-1"  "alt" "-"        "cost" 140)
+  "CAL-12"  (hash "kind" "component" "name" "Caliper"               "on-hand" 9000  "daily" 1000 "supplier" "SUP-T1-A" "alt" "SUP-T1-D" "cost" 85)
+  "PAD-9"   (hash "kind" "component" "name" "Brake pad set"         "on-hand" 30000 "daily" 2000 "supplier" "SUP-T1-B" "alt" "SUP-T1-E" "cost" 12)
+  "CST-7"   (hash "kind" "component" "name" "Iron casting"          "on-hand" 12500 "daily" 1800 "supplier" "SUP-T2-C" "alt" "SUP-T2-F" "cost" 31)
+  "RES-3"   (hash "kind" "material"  "name" "Friction resin (kg)"   "on-hand" 26000 "daily" 3000 "supplier" "SUP-T2-G" "alt" "SUP-T2-H" "cost" 4)
+  "ALU-1"   (hash "kind" "material"  "name" "Alloy ingot (kg)"      "on-hand" 60000 "daily" 5400 "supplier" "SUP-T3-K" "alt" "SUP-T3-L" "cost" 3)))
+
+;; BOM edges: (parent child qty-per-parent). CST-7 is shared by BRK-200 (via CAL-12) and KNU-55.
+(define bom (list
+  (list "BRK-200" "CAL-12" 1)
+  (list "BRK-200" "PAD-9" 2)
+  (list "CAL-12" "CST-7" 1)
+  (list "KNU-55" "CST-7" 1)
+  (list "PAD-9" "RES-3" 1.5)
+  (list "CST-7" "ALU-1" 3)))
+
+;; Sister-plant stock that Risk may rebalance (units) — the "internal rebalance" option.
+(define sister-stock (hash "CAL-12" 3000 "PAD-9" 8000 "CST-7" 2500 "RES-3" 4000 "ALU-1" 20000 "BRK-200" 0 "KNU-55" 1500))
+
+;; The incoming EDI change for the main demo (OEM-A pull-in on the brake module).
+(define demo-edi (hash "id" "EDI-DEMO-1" "part" "BRK-200" "pct" 0.35 "frozen" #f "confidence" 0.86
+                       "signal" "OEM-A promotion pull-in; weekly 830 release +35%"))
+
+;; Historical operational events for Profit Forensics (expedites, claims, inventory variance).
+;; OPS-007 is deliberately malformed (no "premium") to exercise supervise-batch failure handling.
+(define ops-history (list
+  (hash "id" "OPS-001" "type" "air-freight" "part" "CAL-12" "premium" 42000 "cause" "late EDI pull-in" "claim" 0)
+  (hash "id" "OPS-002" "type" "air-freight" "part" "CST-7" "premium" 61000 "cause" "SUP-T2-C lead-time miss" "claim" 38000)
+  (hash "id" "OPS-003" "type" "supplier-switch" "part" "PAD-9" "premium" 27000 "cause" "unnecessary alt-supplier PPAP" "claim" 0)
+  (hash "id" "OPS-004" "type" "overtime" "part" "BRK-200" "premium" 18000 "cause" "late EDI pull-in" "claim" 0)
+  (hash "id" "OPS-005" "type" "inventory-writeoff" "part" "KNU-55" "premium" 33000 "cause" "forecast bias" "claim" 0)
+  (hash "id" "OPS-006" "type" "air-freight" "part" "CST-7" "premium" 55000 "cause" "SUP-T2-C lead-time miss" "claim" 41000)
+  (hash "id" "OPS-007" "type" "air-freight" "part" "RES-3" "cause" "record missing premium" "claim" 0)
+  (hash "id" "OPS-008" "type" "supplier-switch" "part" "CAL-12" "premium" 31000 "cause" "unnecessary alt-supplier PPAP" "claim" 0)))

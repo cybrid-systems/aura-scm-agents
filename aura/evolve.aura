@@ -1,0 +1,105 @@
+;; EDSL policy evolution loop: locate -> observe -> mutate:rebind(reason) -> gate ->
+;; re-run/compare -> ast:snapshot, plus a rollback (ast:restore) when a bad mutation
+;; degrades the metrics. Every step is written to the audit trail.
+
+
+;; ---------------------------------------------------------------- metrics on mock data
+(define (m-arbitration)
+  (let* ((rows (map (lambda (e) (cons e (demand-decide e (hash-ref e "exposure")))) edi-history))
+         (flagged (count-if cdr rows))
+         (needed (count-if (lambda (r) (hash-ref (car r) "needed")) rows))
+         (tp (count-if (lambda (r) (and (cdr r) (hash-ref (car r) "needed"))) rows))
+         (fp (- flagged tp)))
+    (hash "arbitrations" flagged "false-arbitrations" fp "false-arbitration-rate" (ratio fp flagged)
+          "recall" (ratio tp needed) "needed" needed)))
+
+(define (m-claims)
+  (let* ((rows (map (lambda (c) (cons c (claims-classify c))) claim-history))
+         (ok (count-if (lambda (r) (sym=? (cdr r) (hash-ref (car r) "truth"))) rows))
+         (recovered (sum-by (lambda (r) (if (and (sym=? (cdr r) (hash-ref (car r) "truth")) (not (sym=? (cdr r) 'unknown))) (hash-ref (car r) "amount") 0)) rows))
+         (total (sum-by (lambda (r) (if (sym=? (hash-ref (car r) "truth") 'unknown) 0 (hash-ref (car r) "amount"))) rows)))
+    (hash "accuracy" (ratio ok (length rows)) "unknown" (count-if (lambda (r) (sym=? (cdr r) 'unknown)) rows)
+          "recovered" recovered "recovery-rate" (ratio recovered total))))
+
+(define (m-expedite)
+  (let loop ((rs risk-history) (exp 0) (sw 0) (reb 0) (so 0) (cost 0))
+    (if (null? rs)
+        (hash "expedites" exp "supplier-switches" sw "rebalances" reb "stockouts" so "cost" cost)
+        (let* ((r (car rs)) (a (car (risk-respond (hash-ref r "level") (hash-ref r "days"))))
+               (late (< (hash-ref r "days") (hash-ref r "lead"))))
+          (cond ((sym=? a 'alert-planner) (loop (cdr rs) (+ exp 1) sw reb so (+ cost 20000)))
+                ((sym=? a 'suggest-alternative-supplier) (loop (cdr rs) exp (+ sw 1) reb so (+ cost 45000)))
+                ((sym=? a 'propose-internal-rebalance)
+                 ;; no sister-plant stock -> planner falls back to the alternative supplier
+                 (if (hash-ref r "rebalance-ok")
+                     (loop (cdr rs) exp sw (+ reb 1) so (+ cost 6000))
+                     (loop (cdr rs) exp (+ sw 1) (+ reb 1) so (+ cost 6000 45000))))
+                (else (if late (loop (cdr rs) exp sw reb (+ so 1) (+ cost 150000)) (loop (cdr rs) exp sw reb so cost))))))))
+
+;; gates: a mutation is kept only if the business guard holds vs. the previous version
+(define (g-arbitration old new) (and (>= (hash-ref new "recall") 0.8) (<= (hash-ref new "false-arbitration-rate") (hash-ref old "false-arbitration-rate"))))
+(define (g-claims old new) (and (>= (hash-ref new "accuracy") (hash-ref old "accuracy")) (>= (hash-ref new "recovered") (hash-ref old "recovered"))))
+(define (g-expedite old new) (and (<= (hash-ref new "stockouts") (hash-ref old "stockouts")) (<= (hash-ref new "cost") (hash-ref old "cost"))))
+
+(define (emit-metrics tag m) (for-each (lambda (k) (emit (string-append tag "." k) (hash-ref m k))) (list-sort string<? (hash-keys m))))
+(define (mstr m) (string-join (map (lambda (k) (format "~a=~a" k (hash-ref m k))) (list-sort string<? (hash-keys m))) " "))
+(define (mlog-last)
+  (let ((l (query :mutation-log 50))) (if (pair? l) (str l) "-")))
+
+;; returns #t if applied (rebind ok and gate passed), else restores `snap`
+(define (try-mutation! actor policy ver reason metric gate prev snap tag)
+  (let* ((after (policy-src policy ver))
+         (rb (try (mutate:rebind policy after reason) (catch (e) (list 'rebind-error e)))))
+    (if (not (eq? rb #t))
+        (begin (audit! actor "mutate:rebind REJECTED" (format "~a@~a reason=~a error=~a" policy ver reason rb))
+               (emit (string-append tag ".rebind") "rejected")
+               (cons #f prev))
+        (begin
+          (eval-current)
+          (let* ((m (metric)) (pass (gate prev m)))
+            (emit-metrics (string-append tag ".metrics") m)
+            (emit (string-append tag ".gate") (if pass "pass" "fail"))
+            (audit! actor "mutate:rebind" (format "~a@~a reason=~a gate=~a before={~a} after={~a}" policy ver reason (if pass "pass" "fail") (mstr prev) (mstr m)))
+            (bb! (string-append "src:" policy ":" ver) after)
+            (if pass (cons #t m)
+                (begin (ast:restore snap) (eval-current)
+                       (let ((m2 (metric)))
+                         (emit-metrics (string-append tag ".after-rollback") m2)
+                         (audit! "supervisor" "ast:restore" (format "~a rolled back to snapshot ~a (gate fail on ~a)" policy snap ver))
+                         (cons #f m2)))))))))
+
+(define (evolve-policy! actor policy entry reason-good reason-bad metric gate)
+  (let* ((tag (string-append "evo." policy))
+         (calls (query:calls policy))
+         (du (query :def-use policy))
+         (s0 (ast:snapshot))
+         (m0 (metric)))
+    (emit (string-append tag ".located") (format "calls=~a def-use=~a entry=~a" calls du entry))
+    (audit! actor "locate" (format "~a query:calls=~a def-use=~a snapshot=~a" policy calls du s0))
+    (emit-metrics (string-append tag ".v1") m0)
+    (let* ((r1 (try-mutation! actor policy "v2" reason-good metric gate m0 s0 (string-append tag ".v2")))
+           (m1 (cdr r1))
+           (s1 (ast:snapshot)))
+      (audit! "supervisor" "ast:snapshot" (format "~a@~a snapshot=~a" policy (if (car r1) "v2" "v1") s1))
+      (let* ((r2 (try-mutation! actor policy "bad" reason-bad metric gate m1 s1 (string-append tag ".bad")))
+             (m2 (cdr r2)))
+        (emit (string-append tag ".final-equals-v2") (equal? (str m2) (str m1)))
+        (list m0 m1 m2)))))
+
+(define (run-evolution)
+  ;; parse/type gate demo: a syntactically broken rebind is refused before it can apply
+  (let ((bad (try (mutate:rebind "should-arbitrate?" "(define (should-arbitrate? e x) (and (> (abs (change-pct e)) 0.2)" "broken patch")
+                  (catch (e) (list 'rebind-error e)))))
+    (emit "evo.parse-gate" (if (eq? bad #t) "accepted(!)" (format "rejected: ~a" bad)))
+    (audit! "demand" "mutate:rebind REJECTED" (format "should-arbitrate? broken patch -> ~a" bad)))
+  (evolve-policy! "demand" "should-arbitrate?" "demand-decide"
+                  "阈值从15%调至22%，库存门槛提高，增加置信度过滤，减少误报"
+                  "进一步把阈值提到40%以压低仲裁量（实验）" m-arbitration g-arbitration)
+  (evolve-policy! "claims" "claim-root-cause" "claims-classify"
+                  "增加市场信号不匹配作为预测误差判定条件"
+                  "把需求侧判定前置（实验）" m-claims g-claims)
+  (evolve-policy! "risk" "expedite-response" "risk-respond"
+                  "medium风险改为优先内部再平衡，降低不必要的供应商切换"
+                  "medium风险只监控（实验）" m-expedite g-expedite)
+  (emit "evo.mutation-log" (mlog-last))
+  (emit "evo.snapshots" (try (engine:metrics "ast:list-snapshots") (catch (e) "-"))))

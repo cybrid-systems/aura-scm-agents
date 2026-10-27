@@ -1,0 +1,112 @@
+;; Runtime glue: audit trail, blackboard, mailboxes on orch:* primitives, the
+;; supervisor-driven message pump, and small helpers.
+
+;; Local list/string helpers. string-split / filter / assoc / member come from the
+;; std/list module, which aura resolves relative to the *current directory* (an Aura
+;; source checkout); running from this repo they are unbound, so the demo has its own.
+(define (keep p xs) (foldl (lambda (acc x) (if (p x) (append acc (list x)) acc)) (list) xs))
+(define (mem? x xs) (if (null? xs) #f (if (equal? x (car xs)) #t (mem? x (cdr xs)))))
+(define (lookup k al) (if (null? al) #f (if (equal? k (car (car al))) (car al) (lookup k (cdr al)))))
+(define (split-on s ch)
+  (let ((n (string-length s)) (c (car (string->list ch))))
+    (let loop ((i 0) (start 0) (acc (list)))
+      (cond ((= i n) (reverse (cons (substring s start n) acc)))
+            ((= (string-ref s i) c) (loop (+ i 1) (+ i 1) (cons (substring s start i) acc)))
+            (else (loop (+ i 1) start acc))))))
+;; Symbols returned by workspace (set-code) policies are not eq? to symbols quoted in
+;; the --load program, so symbolic results are compared by name.
+(define (sym=? a b) (string=? (format "~a" a) (format "~a" b)))
+(define (hg h k d) (if (hash-has-key? h k) (hash-ref h k) d))
+(define (fmt2 x) (/ (round (* x 1000.0)) 1000.0))
+(define (ratio a b) (if (= b 0) 0.0 (fmt2 (/ (* 1.0 a) b))))
+(define (str x) (format "~a" x))
+(define (count-if p xs) (foldl (lambda (acc x) (if (p x) (+ acc 1) acc)) 0 xs))
+(define (sum-by f xs) (foldl (lambda (acc x) (+ acc (f x))) 0 xs))
+(define (emit k v) (display "@@") (display k) (display "=") (display v) (newline))
+
+;; ---------------------------------------------------------------- audit trail
+;; Every agent action and every policy mutation lands here: who, when, what, why,
+;; before/after. Policy mutations also carry Aura's own mutation-log id.
+(define T0 (monotonic-ms))
+(define AUDIT (list))
+(define AUDIT-SEQ 0)
+(define (audit! actor action detail)
+  (set! AUDIT-SEQ (+ AUDIT-SEQ 1))
+  (set! AUDIT (cons (hash "seq" AUDIT-SEQ "t-ms" (- (monotonic-ms) T0) "wall" (current-time)
+                          "actor" actor "action" action "detail" detail) AUDIT))
+  AUDIT-SEQ)
+(define (dump-audit tag)
+  (for-each (lambda (e)
+              (emit (string-append tag ".audit")
+                    (format "~a|~a|~a|~a|~a" (hash-ref e "seq") (hash-ref e "t-ms") (hash-ref e "actor")
+                            (hash-ref e "action") (hash-ref e "detail"))))
+            (reverse AUDIT)))
+
+;; ---------------------------------------------------------------- blackboard
+;; Mailbox payloads must be strings (orch:agent-send rejects lists/hashes with
+;; status=unsupported-payload), so structured case data lives here and messages carry keys.
+(define BB (hash))
+(define (bb! k v) (hash-set! BB k v) v)
+(define (bb k) (hg BB k #f))
+
+;; ---------------------------------------------------------------- mailboxes
+;; Each agent is an orch:spawn-agent with an attached mailbox. Message wire format:
+;; "kind|from|corr|body". The agent's turn is run by the supervisor pump (see README:
+;; recv inside an orch:spawn-agent body never sees mail, and orch:agent-ask cannot be
+;; answered in-process, so the pump is the workaround).
+(define AGENTS (list))           ; list of (name . handler), in dispatch order
+(define MSG-COUNT 0)
+(define (register-agent! name handler)
+  (let ((h (orch:spawn-agent name (lambda () 'idle) :attach-mailbox #t)))
+    (if (not (hash-ref h "ok")) (error (string-append "spawn failed: " name)) #t)
+    (set! AGENTS (append AGENTS (list (cons name handler))))
+    (audit! "supervisor" "spawn-agent" (format "~a id=~a" name (hash-ref h "id")))
+    h))
+
+(define (send! to from kind corr body)
+  (let ((r (orch:agent-send to (string-append kind "|" from "|" (str corr) "|" body))))
+    (set! MSG-COUNT (+ MSG-COUNT 1))
+    (if (hash-ref r "ok") #t (error (format "send ~a->~a failed: ~a" from to (hash-ref r "status"))))))
+
+(define (parse-msg payload)
+  (let ((p (split-on payload "|")))
+    (hash "kind" (list-ref p 0) "from" (list-ref p 1) "corr" (list-ref p 2)
+          "body" (if (> (length p) 3) (list-ref p 3) ""))))
+
+(define (drain name)
+  (let loop ((acc (list)))
+    (let ((m (orch:agent-recv name :wait #f)))
+      (if (hash-ref m "ok") (loop (cons (parse-msg (hash-ref m "payload")) acc)) (reverse acc)))))
+
+;; One pump = rounds over every agent mailbox until a round delivers nothing.
+(define TURNS 0)
+(define (pump!)
+  (let round ((n 0))
+    (let ((handled
+           (foldl (lambda (acc a)
+                    (let ((msgs (drain (car a))))
+                      (for-each (lambda (m) (set! TURNS (+ TURNS 1)) ((cdr a) m)) msgs)
+                      (+ acc (length msgs))))
+                  0 AGENTS)))
+      (if (and (> handled 0) (< n 50)) (round (+ n 1)) n))))
+
+;; ask/reply on top of send/recv with correlation ids (orch:agent-ask workaround).
+(define CORR 0)
+(define SUP-INBOX (hash))
+;; replies are keyed by corr id; unsolicited results (corr 0) by "kind:case-id"
+(define (absorb-supervisor-mail!)
+  (for-each (lambda (m)
+              (if (string=? (hash-ref m "kind") "reply")
+                  (hash-set! SUP-INBOX (hash-ref m "corr") m)
+                  (hash-set! SUP-INBOX (string-append (hash-ref m "kind") ":" (car (split-on (hash-ref m "body") ";"))) m)))
+            (drain "supervisor")))
+(define (ask! to kind body)
+  (set! CORR (+ CORR 1))
+  (let ((c CORR) (t0 (monotonic-ms)))
+    (send! to "supervisor" kind c body)
+    (pump!)
+    (absorb-supervisor-mail!)
+    (let ((r (hg SUP-INBOX (str c) #f)))
+      (if r (begin (bb! (string-append "rtt:" (str c)) (- (monotonic-ms) t0)) (hash-ref r "body"))
+          (error (format "no reply from ~a for corr ~a" to c))))))
+(define (reply! msg from body) (send! (hash-ref msg "from") from "reply" (hash-ref msg "corr") body))

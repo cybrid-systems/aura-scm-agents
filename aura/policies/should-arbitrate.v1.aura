@@ -1,0 +1,4 @@
+(define (should-arbitrate? edi-change inventory-exposure)
+  (and (> (abs (change-pct edi-change)) 0.15)
+       (> inventory-exposure 500000)
+       (not (frozen-horizon? edi-change))))

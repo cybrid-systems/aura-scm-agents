@@ -1,0 +1,16 @@
+;; aura-scm-agents main demo. scripts/run.sh concatenates MODULES (see scripts/run.sh) ahead of this file
+;; because definitions from (load ...) are not visible to the loading file in --load mode.
+
+(boot-agents!)
+(emit "phase" "case-1 approve (policies v1)")
+(run-case "CASE-1" demo-edi "approve")
+(emit "phase" "case-2 reject (policies v1)")
+(run-case "CASE-2" demo-edi "reject")
+(emit "phase" "evolution")
+(run-evolution)
+(emit "phase" "case-3 approve (evolved policies)")
+(run-case "CASE-3" demo-edi "approve")
+(let ((d (orch:agent-directory)))
+  (emit "directory" (format "scope-agents=~a name-table=~a" (hash-ref d "count") (hash-ref d "name-table-count"))))
+(dump-audit "trail")
+(emit "done" "ok")

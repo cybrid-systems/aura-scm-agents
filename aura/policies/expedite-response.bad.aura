@@ -1,0 +1,5 @@
+(define (expedite-response risk-level inventory-days)
+  (cond
+    ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 5))
+     (list 'alert-planner 'immediate-expedite-review))
+    (else (list 'monitor))))

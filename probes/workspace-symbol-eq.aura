@@ -1,0 +1,9 @@
+;; Repro: a symbol returned by a workspace function (set-code + eval-current) is not
+;; eq? to the same quoted symbol in the --load program, and symbol? returns #f for it
+;; (equal? still returns #t).
+;; Observed on main 235bcfa6b: (high #f #t #f). Expected: (high #t #t #t).
+(set-code "(define (ws-level x) (if (> x 1) 'high 'low))")
+(eval-current)
+(define v (ws-level 2))
+(display (list v (eq? v 'high) (equal? v 'high) (symbol? v)))
+(newline)

@@ -1,0 +1,9 @@
+(define (claim-root-cause expedite-event)
+  (cond
+    ((or (forecast-bias? expedite-event)
+         (market-signal-mismatch? expedite-event)
+         (edi-increase? expedite-event))
+     'demand-forecast-error)
+    ((supplier-lead-time-miss? expedite-event)
+     'supplier-delay)
+    (else 'unknown)))

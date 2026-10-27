@@ -1,0 +1,28 @@
+;; NOTE: intermittent on main 235bcfa6b — about 1 in 4 runs gives (timeout (#f #f #f #f #f #f)), the others (ok (done ...)).
+;; Repro: scope tasks that cooperatively wait (fiber:yield) for a parent flag are lost
+;; when spawned after orch:run-workflow. Expected: (ok (done done done done done done)).
+;; Observed on main 235bcfa6b: (timeout (#f #f #f #f #f #f)): no waiter body ever runs.
+;; Without the orch:run-workflow line the same program prints (ok (done done done done done done)).
+(define BB (hash))
+(define (bb k) (if (hash-has-key? BB k) (hash-ref BB k) #f))
+(define (bb! k v) (hash-set! BB k v) v)
+(define (stage! cid nodes)
+  (for-each (lambda (n)
+     (let ((flag (string-append cid ":decision")))
+       (orch:scope-spawn (string-append cid "/exec:" n)
+         (lambda ()
+           (let wait ((i 0))
+             (let ((d (bb flag)))
+               (cond ((equal? d "approved") (bb! (string-append cid ":exec:" n) "done"))
+                     ((or (equal? d "rejected") (> i 200000)) (bb! (string-append cid ":exec:" n) "aborted"))
+                     (else (fiber:yield) (wait (+ i 1))))))))))
+   nodes))
+(define (run cid)
+  (orch:scope-spawn "pre" (lambda () 1))
+  (orch:scope-join-all :timeout-ms 3000)
+  (stage! cid (list "A" "B" "C" "D" "E" "F"))
+  (bb! (string-append cid ":decision") "approved")
+  (let ((j (orch:scope-join-all :timeout-ms 10000)))
+    (display (list (hash-ref j "status") (map (lambda (n) (bb (string-append cid ":exec:" n))) (list "A" "B" "C" "D" "E" "F")))) (newline)))
+(orch:run-workflow (vector (hash "tasks" (vector (lambda () 1) (lambda () 2))) (hash "tasks" (vector (lambda () 3)))))
+(run "C1")

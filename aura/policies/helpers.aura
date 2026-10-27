@@ -1,0 +1,12 @@
+;; Workspace helpers: accessors over mock event hashes. Loaded into the Aura
+;; workspace (set-code) together with the policies so query:calls / def-use see them.
+(define (change-pct e) (hash-ref e "pct"))
+(define (frozen-horizon? e) (hash-ref e "frozen"))
+(define (high-confidence? e) (>= (hash-ref e "confidence") 0.7))
+(define (edi-increase? e) (hash-ref e "edi-increase"))
+(define (supplier-lead-time-miss? e) (hash-ref e "lead-time-miss"))
+(define (forecast-bias? e) (hash-ref e "forecast-bias"))
+(define (bias-amount e) (hash-ref e "bias-amount"))
+(define (market-signal-mismatch? e) (hash-ref e "market-mismatch"))
+;; symbols are not ordered in Aura: (>= 'high 'medium) is a type error, so levels map to ranks
+(define (risk-rank level) (cond ((eq? level 'high) 3) ((eq? level 'medium) 2) ((eq? level 'low) 1) (else 0)))

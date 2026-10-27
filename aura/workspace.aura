@@ -1,0 +1,20 @@
+;; Install the EDSL policies into the Aura *workspace* (set-code + eval-current) so they
+;; can be located (query:calls / def-use), mutated (mutate:rebind), snapshotted and
+;; restored (ast:snapshot / ast:restore). This must run BEFORE agents.aura is compiled:
+;; in --load mode a top-level form only sees workspace bindings that exist when it is
+;; compiled (later rebinds are picked up through the same global binding).
+
+(define POLICY-DIR "aura/policies/")
+(define (policy-file name) (if (string=? name "should-arbitrate?") "should-arbitrate" name))
+(define (policy-src name ver) (read-file (string-append POLICY-DIR (policy-file name) "." ver ".aura")))
+(define (install-workspace!)
+  (set-code (string-append (read-file (string-append POLICY-DIR "helpers.aura"))
+                           (policy-src "should-arbitrate?" "v1")
+                           (policy-src "claim-root-cause" "v1")
+                           (policy-src "expedite-response" "v1")
+                           (read-file (string-append POLICY-DIR "entry.aura"))))
+  (if (procedure? (eval-current)) #t #t)
+  (if (eq? (risk-rank (quote high)) 3) #t (error "workspace policies failed to install"))
+  (audit! "supervisor" "install-policies" "should-arbitrate?@v1 claim-root-cause@v1 expedite-response@v1"))
+
+(install-workspace!)

@@ -1,0 +1,12 @@
+;; Repro: orch:supervise-batch with the default :watch-scope returns ok / ok-count=0 / err-count=0 before
+;; the tasks ran (no side effects), hiding the failing task; :watch-scope #f reports partial ok=1 err=1.
+(define (hg h k) (try (hash-ref h k) (catch (e) "-")))
+(define (dumpk tag h ks) (display tag) (display ": ") (for-each (lambda (k) (display k) (display "=") (display (hg h k)) (display " ")) ks) (newline))
+(define R (hash))
+(define pol (orch:compose-workflow 'collect-all :max-retries 2))
+(define sb (orch:supervise-batch (list (lambda () (hash-set! R "t1" 1) 1) (lambda () (error "boom")) (lambda () (hash-set! R "t3" 3) 3)) pol :watch-scope #t))
+(dumpk "sb-watch" sb (list "ok" "status" "ok-count" "err-count" "apply-total" "restart-ok" "restart-attempted"))
+(display (hash-keys R))(newline)
+(define sb (orch:supervise-batch (list (lambda () (hash-set! R "w1" 1) 1) (lambda () (error "boom"))) pol :watch-scope #f))
+(dumpk "sb-nowatch" sb (list "ok" "status" "ok-count" "err-count" "apply-total"))
+(display (hash-keys R))(newline)

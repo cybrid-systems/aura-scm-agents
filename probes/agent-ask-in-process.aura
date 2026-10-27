@@ -1,0 +1,13 @@
+;; Repro: orch:agent-ask cannot be answered by an in-process responder fiber: the request reaches the
+;; responder only after the ask timed out, and orch:agent-reply then returns unknown-corr. The recv'd
+;; message exposes no correlation-id key, only the 'ask:<id>:<body>' payload prefix.
+;; Observed on main 235bcfa6b: ask-from-fiber status=timeout, srv-got payload ask:1:ping, reply unknown-corr.
+(define (hg h k) (try (hash-ref h k) (catch (e) "-")))
+(define (dump tag h) (display tag) (display ": ") (if (hash? h) (begin (display (list "ok" (hg h "ok") "status" (hg h "status") "payload" (hg h "payload") "corr" (hg h "correlation-id")))) (display h)) (newline))
+(define (corr-of p) (let loop ((i 4)) (if (char=? (string-ref p i) #\:) (string->number (substring p 4 i)) (loop (+ i 1)))))
+(orch:spawn-agent "svc" (lambda () 0) :attach-mailbox #t)
+(define srv (fiber:spawn (lambda () (let loop ((n 0)) (let ((m (orch:agent-recv "svc" :wait #f))) (if (hash-ref m "ok") (begin (dump "srv-got" m) (dump "reply" (orch:agent-reply (corr-of (hash-ref m "payload")) "pong"))) (if (< n 200000) (begin (fiber:yield) (loop (+ n 1))) (display "srv-gave-up\n"))))))))
+(define cli (fiber:spawn (lambda () (dump "ask-from-fiber" (orch:agent-ask "svc" "ping" :timeout-ms 3000)))))
+(fiber:join cli)
+(fiber:join srv)
+(display "END\n")

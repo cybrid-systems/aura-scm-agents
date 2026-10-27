@@ -1,0 +1,5 @@
+;; Policy call sites used by the agents. query:calls / (query :def-use ...) locate the
+;; policies through these entry points before a mutation.
+(define (demand-decide edi-change exposure) (should-arbitrate? edi-change exposure))
+(define (claims-classify claim) (claim-root-cause claim))
+(define (risk-respond level days) (expedite-response level days))

@@ -1,0 +1,10 @@
+;; Repro: inside an orch:spawn-agent body, orch:agent-recv on its own mailbox is empty even after a send,
+;; and orch:agent-send to a peer returns backpressure. Observed on main 235bcfa6b: in-body-recv ok=#f empty=#t,
+;; in-body-send-b status=backpressure (the top level can recv the same message).
+(define (dump tag h) (display tag) (display ": ") (if (hash? h) (for-each (lambda (k) (display k) (display "=") (let ((v (hash-ref h k))) (if (hash? v) (display "<h>") (display v))) (display " ")) (hash-keys h)) (display h)) (newline))
+(orch:spawn-agent "a" (lambda () (begin (dump "in-body-recv" (orch:agent-recv "a" :wait #f)) (dump "in-body-send-b" (orch:agent-send "b" "from-a")) 1)) :attach-mailbox #t)
+(orch:spawn-agent "b" (lambda () 2) :attach-mailbox #t)
+(dump "send-a" (orch:agent-send "a" "m1"))
+(dump "top-recv-a" (orch:agent-recv "a" :wait #f))
+(dump "join-a" (orch:agent-join "a" :timeout-ms 3000))
+(dump "top-recv-b" (orch:agent-recv "b" :wait #f))
