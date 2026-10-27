@@ -156,3 +156,16 @@ KNU-55，共 7 个节点 3 跳；每个节点一个 scope 任务；`expedite-res
 recv 收不到消息、agent-ask 无法在进程内应答）；`supervise-batch` 使用 `:watch-scope #f`；scope 任务在
 `supervise-batch`/`run-workflow` 之后可能丢失，演示会检测并内联补执行且写入审计；`scope-cancel-all` 无法停止持续 yield 的任务，
 因此执行任务同时检查审批标志。
+
+## Filed orchestration issues / 已提交的编排问题
+
+| Issue | Probe |
+|---|---|
+| [#4721](https://github.com/cybrid-systems/aura/issues/4721) spawn-agent body mailbox | probes/agent-body-mailbox.aura |
+| [#4722](https://github.com/cybrid-systems/aura/issues/4722) agent-ask in-process | probes/agent-ask-in-process.aura |
+| [#4723](https://github.com/cybrid-systems/aura/issues/4723) supervise-batch default watch-scope | probes/supervise-batch-watch-scope.aura |
+| [#4724](https://github.com/cybrid-systems/aura/issues/4724) scope-cancel-all vs yielding bodies | probes/scope-cancel-yielding.aura |
+| [#4725](https://github.com/cybrid-systems/aura/issues/4725) scope tasks lost after supervise-batch | probes/scope-lost-after-supervise-batch.aura |
+| [#4726](https://github.com/cybrid-systems/aura/issues/4726) scope tasks lost after run-workflow (intermittent) | probes/scope-lost-after-run-workflow.aura |
+
+The demo works around these (inline recompute with `scope-task-missing` / `scope-task-lost` audit entries, and a hand-rolled blackboard mailbox). 本 demo 通过内联重算加审计记录绕开上述问题。
