@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add the missing high-confidence condition and tighten materiality/exposure to 0.2 and 1,000,000. This excludes low-confidence false positives (0.60–0.67), the 0.194/680,000 case, and the -0.428/690,000/0.91 case, reducing v1’s 71.4% false-arbitration rate while targeting recall ≥0.8.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.2)\\n       (> inventory-exposure 1000000)\\n       (high-confidence? edi-change)\\n       (not (frozen-horizon? edi-change))))\"}",
+ "finish": "stop",
+ "latency_s": 71.66,
+ "attempts": 1,
+ "prompt_tokens": 1097,
+ "completion_tokens": 7407,
+ "reasoning_tokens": 7240,
+ "prompt_sha": "6686ccd7dd2bfda3",
+ "provider": "minimax"
+}

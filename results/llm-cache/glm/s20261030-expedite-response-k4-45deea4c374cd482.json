@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"suggest-alternative-supplier (45000, often late) is dominated by alert-planner (35000, always on time): rows inv=2.8/5.3 stocked out (195000), inv=5.4 paid 45000. Routing all medium/high risk to alert-planner cuts stockouts 4->0 and cost 2.165M->~1.225M, satisfying the gate; first branch is subsumed.\", \"source\": \"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 5))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    ((>= (risk-rank risk-level) (risk-rank 'medium))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 190.41,
+ "attempts": 1,
+ "prompt_tokens": 1323,
+ "completion_tokens": 7232,
+ "reasoning_tokens": 7021,
+ "prompt_sha": "45deea4c374cd482",
+ "provider": "glm"
+}

@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"All shown failures are demand-forecast-error misrouted to unknown (23 unknowns; recovery-rate 0.607). Two patterns: forecast-bias with bias-amount 0.065-0.081 falls under the 0.1 threshold, and market-mismatch=#t rows have no branch. Lower the bias threshold to 0.06 and add a market-signal-mismatch branch mapping to 'demand-forecast-error.\", \"source\": \"(define (claim-root-cause expedite-event)\\n  (cond\\n    ((and (edi-increase? expedite-event)\\n          (supplier-lead-time-miss? expedite-event))\\n     'supplier-delay)\\n    ((and (forecast-bias? expedite-event)\\n          (> (bias-amount expedite-event) 0.06))\\n     'demand-forecast-error)\\n    ((market-signal-mismatch? expedite-event)\\n     'demand-forecast-error)\\n    (else 'unknown)))\"}",
+ "finish": "stop",
+ "latency_s": 15.33,
+ "attempts": 1,
+ "prompt_tokens": 1048,
+ "completion_tokens": 670,
+ "reasoning_tokens": 453,
+ "prompt_sha": "63cded2b34903455",
+ "provider": "glm"
+}

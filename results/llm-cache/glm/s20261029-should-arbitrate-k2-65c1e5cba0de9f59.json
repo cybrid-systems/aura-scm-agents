@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"All 8 example failure rows are false arbitrations (needed=#f), six with confidence 0.44-0.67. Gating on high-confidence? (>=0.7) prunes low-trust EDI changes, cutting false-arbitration-rate from 0.714 while the confidence gate should keep the true positives, preserving recall >= 0.8.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 34.18,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 1329,
+ "reasoning_tokens": 1174,
+ "prompt_sha": "65c1e5cba0de9f59",
+ "provider": "glm"
+}

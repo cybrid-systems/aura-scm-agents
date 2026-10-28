@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\": \"v1 (accuracy=0.708, unknown=23) misses 14 costly rows: eight with market-mismatch=#t and four with forecast-bias=#t but bias 0.065–0.081 under the 0.1 cutoff, all truth demand-forecast-error, v1=unknown. Add a market-signal-mismatch branch and lower the bias threshold to 0.05, keeping supplier-delay first so accuracy and recovered amount should rise.\", \"source\": \"(define (claim-root-cause expedite-event)\\n  (cond\\n    ((and (edi-increase? expedite-event)\\n          (supplier-lead-time-miss? expedite-event))\\n     'supplier-delay)\\n    ((and (forecast-bias? expedite-event)\\n          (> (bias-amount expedite-event) 0.05))\\n     'demand-forecast-error)\\n    ((market-signal-mismatch? expedite-event)\\n     'demand-forecast-error)\\n    (else 'unknown)))\"}",
+ "finish": "stop",
+ "latency_s": 23.27,
+ "attempts": 1,
+ "prompt_tokens": 1236,
+ "completion_tokens": 1524,
+ "reasoning_tokens": 1313,
+ "prompt_sha": "1f65473b873881e4",
+ "provider": "minimax"
+}

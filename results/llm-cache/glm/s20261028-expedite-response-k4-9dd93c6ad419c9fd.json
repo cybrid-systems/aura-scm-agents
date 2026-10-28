@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"All 4 stockouts came from the 34 suggest-alternative-supplier rows (alt lead 4-7d vs 2.8-5.3d inventory). Alert-planner costs 35000 vs 45000 and always arrives on time, so it strictly dominates; swapping the medium+ branch action cuts cost to ~1.225M and removes every stockout.\", \"source\": \"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 5))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    ((>= (risk-rank risk-level) (risk-rank 'medium))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 138.63,
+ "attempts": 1,
+ "prompt_tokens": 1323,
+ "completion_tokens": 3039,
+ "reasoning_tokens": 2844,
+ "prompt_sha": "9dd93c6ad419c9fd",
+ "provider": "glm"
+}

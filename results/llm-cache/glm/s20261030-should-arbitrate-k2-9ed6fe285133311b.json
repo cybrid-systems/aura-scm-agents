@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"All 8 failure rows are unneeded arbitrations; 6 have confidence <0.7 (0.44-0.67). Adding the (high-confidence? edi-change) gate removes low-confidence false arbitrations, cutting the 0.714 rate while high-confidence cases and recall are preserved (recall stays >=0.8), raising fitness.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (high-confidence? edi-change)\\n       (not (frozen-horizon? edi-change))))\"}",
+ "finish": "stop",
+ "latency_s": 32.25,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 1216,
+ "reasoning_tokens": 1067,
+ "prompt_sha": "9ed6fe285133311b",
+ "provider": "glm"
+}

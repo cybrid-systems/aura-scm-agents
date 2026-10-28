@@ -1,0 +1,10 @@
+;; filed as aura#4743
+;; `quote` does not protect special forms inside its datum (Aura e6f4169e0, Release, host mode).
+;; Expected: every line prints the datum unchanged.
+(display (quote (when a b))) (newline)                   ; (when a b)              ok
+(display (quote (define (f x) x))) (newline)             ; (define f lambda (x) . x)  desugared
+(display (quote (let ((a 1)) a))) (newline)              ; (let (a . 1) . a)       desugared
+(display (quote (cond (a 1)))) (newline)                 ; 1                       evaluated(!)
+(display (eval "(quote (cond (a 1)))")) (newline)        ; 1                       same via eval
+(display "next line hangs forever (timeout rc=124)") (newline)
+(display (quote (if a b c))) (newline)                   ; hangs; same for (quote (cond (a 1) (else 2)))

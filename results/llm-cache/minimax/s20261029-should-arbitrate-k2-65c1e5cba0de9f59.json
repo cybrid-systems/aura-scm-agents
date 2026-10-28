@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add the high-confidence? gate: it rejects six of eight shown false arbitrations (confidence 0.44–0.67), directly reducing the 0.714 FAR while retaining v1’s magnitude/exposure criteria to protect its 1.0 recall and the >=0.8 business gate. The 0.83 and 0.91 false rows remain.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.15) (> inventory-exposure 500000) (not (frozen-horizon? edi-change)) (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 27.15,
+ "attempts": 1,
+ "prompt_tokens": 1097,
+ "completion_tokens": 4352,
+ "reasoning_tokens": 4207,
+ "prompt_sha": "65c1e5cba0de9f59",
+ "provider": "minimax"
+}

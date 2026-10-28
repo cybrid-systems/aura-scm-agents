@@ -117,37 +117,34 @@
 ;; ---------------------------------------------------------------- metrics with a candidate closure
 ;; Same definitions as aura/evolve.aura (m-arbitration / m-claims / m-expedite), but over a
 ;; private closure instead of the workspace binding.
-(define (mf-arb f)
-  (let* ((rows (map (lambda (e) (cons e (call2 f e (hash-ref e "exposure")))) edi-history))
+(define (mf-arb f) (mf-arb-on f edi-history))
+(define (mf-arb-on f hist)
+  (let* ((rows (map (lambda (e) (cons e (call2 f e (hash-ref e "exposure")))) hist))
          (flagged (count-if cdr rows))
          (needed (count-if (lambda (r) (hash-ref (car r) "needed")) rows))
          (tp (count-if (lambda (r) (and (cdr r) (hash-ref (car r) "needed"))) rows))
          (fp (- flagged tp)))
     (list flagged fp (ratio fp flagged) (ratio tp needed))))
-(define (mf-claims f)
-  (let* ((rows (map (lambda (c) (cons c (call1 f c))) claim-history))
+(define (mf-claims f) (mf-claims-on f claim-history))
+(define (mf-claims-on f hist)
+  (let* ((rows (map (lambda (c) (cons c (call1 f c))) hist))
          (ok (count-if (lambda (r) (eq? (cdr r) (hash-ref (car r) "truth"))) rows))
          (recovered (sum-by (lambda (r) (if (and (eq? (cdr r) (hash-ref (car r) "truth")) (not (eq? (cdr r) 'unknown))) (hash-ref (car r) "amount") 0)) rows))
          (total (sum-by (lambda (r) (if (eq? (hash-ref (car r) "truth") 'unknown) 0 (hash-ref (car r) "amount"))) rows)))
     (list (ratio ok (length rows)) (count-if (lambda (r) (eq? (cdr r) 'unknown)) rows) recovered (ratio recovered total))))
-(define (mf-exp f)
-  (let loop ((rs risk-history) (exp 0) (sw 0) (reb 0) (so 0) (cost 0))
-    (if (null? rs)
-        (list exp sw reb so cost)
-        (let* ((r (car rs)) (a (car (call2 f (hash-ref r "level") (hash-ref r "days"))))
-               (late (< (hash-ref r "days") (hash-ref r "lead"))))
-          (cond ((eq? a 'alert-planner) (loop (cdr rs) (+ exp 1) sw reb so (+ cost 20000)))
-                ((eq? a 'suggest-alternative-supplier) (loop (cdr rs) exp (+ sw 1) reb so (+ cost 45000)))
-                ((eq? a 'propose-internal-rebalance)
-                 (if (hash-ref r "rebalance-ok")
-                     (loop (cdr rs) exp sw (+ reb 1) so (+ cost 6000))
-                     (loop (cdr rs) exp (+ sw 1) (+ reb 1) so (+ cost 6000 45000))))
-                (else (if late (loop (cdr rs) exp sw reb (+ so 1) (+ cost 150000)) (loop (cdr rs) exp sw reb so cost))))))))
+;; cost model v2 lives in aura/evolve.aura (exp-cost-rows), shared with the workspace metric
+(define (mf-exp f) (exp-cost-rows f risk-history))
+(define (mf-exp-on f hist) (exp-cost-rows f hist))
+;; hold-out metrics (coordinator only; never used for selection)
+(define (mf-holdout pol f)
+  (cond ((string=? pol "should-arbitrate?") (mf-arb-on f edi-holdout))
+        ((string=? pol "claim-root-cause") (mf-claims-on f claim-holdout))
+        (else (mf-exp-on f risk-holdout))))
 
 ;; workspace metrics as lists in the same order (used by the single-writer commit step)
 (define (mw-arb) (let ((m (m-arbitration))) (list (hash-ref m "arbitrations") (hash-ref m "false-arbitrations") (hash-ref m "false-arbitration-rate") (hash-ref m "recall"))))
 (define (mw-claims) (let ((m (m-claims))) (list (hash-ref m "accuracy") (hash-ref m "unknown") (hash-ref m "recovered") (hash-ref m "recovery-rate"))))
-(define (mw-exp) (let ((m (m-expedite))) (list (hash-ref m "expedites") (hash-ref m "supplier-switches") (hash-ref m "rebalances") (hash-ref m "stockouts") (hash-ref m "cost"))))
+(define (mw-exp) (let ((m (m-expedite))) (list (hash-ref m "expedites") (hash-ref m "supplier-switches") (hash-ref m "rebalances") (hash-ref m "stockouts") (hash-ref m "cost") (hash-ref m "events"))))
 
 ;; ---------------------------------------------------------------- smoke type/shape gate
 (define (sym-in? x names) (and (symbol? x) (mem? (format "~a" x) names)))
@@ -164,10 +161,10 @@
 ;; ---------------------------------------------------------------- scalarized fitness (higher is better)
 ;; arbitration: recall - false-alarm rate, recall below 0.8 (the business gate) costs 1.0
 ;; claims: accuracy + recovery rate
-;; expedite: -(cost in M) - 0.1 * stockouts
+;; expedite: -(cost in M) - 0.1 * stockouts, both per 40 risk events (train has 40, hold-out 80)
 (define (fit-arb m) (- (- (nth m 3) (nth m 2)) (if (< (nth m 3) 0.8) 1.0 0.0)))
 (define (fit-claims m) (+ (nth m 0) (nth m 3)))
-(define (fit-exp m) (- 0.0 (/ (nth m 4) 1000000.0) (* 0.1 (nth m 3))))
+(define (fit-exp m) (let ((k (/ 40.0 (nth m 5)))) (- 0.0 (* k (/ (nth m 4) 1000000.0)) (* k 0.1 (nth m 3)))))
 ;; Pareto objectives (all maximized)
 (define (obj-arb m) (list (nth m 3) (- 0.0 (nth m 2))))
 (define (obj-claims m) (list (nth m 0) (nth m 2)))
@@ -193,7 +190,7 @@
                 (list "demand-cond" (list "bias-amt" "bias" "bias-or-mkt" "bias-amt-or-mkt" "bias-or-mkt-or-edi"))
                 (list "default" (list "unknown" "supplier-delay" "demand-forecast-error"))))
     (list "expedite-response" er-src mf-exp mw-exp smoke-exp fit-exp obj-exp
-          (list "expedites" "supplier-switches" "rebalances" "stockouts" "cost")
+          (list "expedites" "supplier-switches" "rebalances" "stockouts" "cost" "events")
           (list (list 1.0 15.0))
           (list 5.0) (list "alert" "alt" "monitor")
           (list 5.0) (list "alert" "rebalance" "monitor")
@@ -233,21 +230,43 @@
          (_b (fiber:overlay-begin))
          (res
            (try
-             (if (not (string=? (car cc) "ok")) (list "reject" (nth cc 1) 0 (list))
+             (if (not (string=? (car cc) "ok")) (list "reject" (nth cc 1) 0 (list) "" 0)
                  (begin
                    (fiber:overlay-define slot (nth cc 1))          ; private, never committed
                    (let ((f (fiber:overlay-get slot #f)))
-                     (if (not (try (call1 (p-smoke p) f) (catch (e) #f)))
-                         (list "reject" "type" 0 (list))
-                         (let loop ((k 1) (m (call1 (p-mf p) f)))
-                           (if (>= k EVAL-REPS)
-                               (list "pass" "ok" (call1 (p-fit p) m) m)
-                               (loop (+ k 1) (call1 (p-mf p) f))))))))
-             (catch (e) (list "reject" "runtime" 0 (list) (clean-err e)))))
+                     ;; a pure closure called from an inner lambda in parallel fibers sometimes
+                     ;; returns <unknown> (probes/closure-unknown-in-fibers.aura, aura#4745).  Retry: the
+                     ;; smoke gate passes if any of 3 tries passes (a real defect fails every
+                     ;; time), metrics are the majority of >= 3 passes, and a runtime error is
+                     ;; retried twice; every retry/disagreement is counted as a flake.
+                     (score-tries p f 0))))
+             (catch (e) (list "reject" "runtime" 0 (list) (clean-err e) 0))))
          (pending (fiber:overlay-pending))
          (_r (fiber:overlay-rollback)))
-    (format "~a|~a|~a|~a|~a|~a|~a|~a" id (nth res 0) (nth res 1) (nth res 2) (join-with "," (nth res 3)) (- (monotonic-ms) t0) pending
-            (if (> (length res) 4) (nth res 4) ""))))
+    (format "~a|~a|~a|~a|~a|~a|~a|~a|~a" id (nth res 0) (nth res 1) (nth res 2) (join-with "," (nth res 3)) (- (monotonic-ms) t0) pending
+            (nth res 4) (nth res 5))))
+(define (score-once p f)
+  (try
+    (let* ((s1 (try (call1 (p-smoke p) f) (catch (e) #f)))
+           (sok (or s1 (try (call1 (p-smoke p) f) (catch (e) #f)) (try (call1 (p-smoke p) f) (catch (e) #f)))))
+      (if (not sok)
+          (list "reject" "type" 0 (list) "" 0)
+          (let loop ((k 0) (acc (list)))
+            (if (>= k (max 3 EVAL-REPS))
+                (let* ((m (mode-of acc)) (flk (+ (if s1 0 1) (count-if (lambda (x) (not (equal? x m))) acc))))
+                  (list "pass" "ok" (call1 (p-fit p) m) m "" flk))
+                (loop (+ k 1) (cons (call1 (p-mf p) f) acc))))))
+    (catch (e) (list "reject" "runtime" 0 (list) (clean-err e) 0))))
+(define (score-tries p f tries)
+  (let ((r (score-once p f)))
+    (if (and (string=? (nth r 1) "runtime") (< tries 2))
+        (let ((r2 (score-tries p f (+ tries 1)))) (append (take-n r2 5) (list (+ 1 (nth r2 5)))))
+        r)))
+(define (mode-of xs)   ; most frequent element (first on ties)
+  (let loop ((ys xs) (best (car xs)) (bc 0))
+    (if (null? ys) best
+        (let ((c (count-if (lambda (z) (equal? z (car ys))) xs)))
+          (if (> c bc) (loop (cdr ys) (car ys) c) (loop (cdr ys) best bc))))))
 
 ;; ---------------------------------------------------------------- coordinator state (single writer)
 (define RCH (channel:create 256))
@@ -266,6 +285,8 @@
 (define REACHED-V2 (hash))   ; policy -> eval counter when fitness >= v2 first
 (define PEVALS (hash))       ; policy -> evals
 (define MAX-PENDING 0)
+(define KREJ (hash))         ; policy key -> gate rejects
+(define FLAKES 0)           ; worker-side retries/disagreements (closure <unknown> flake)
 (define (hinc! h k d) (hash-set! h k (+ (hg h k 0) d)))
 
 (define (new-cand! p stage cont choices noise)
@@ -297,8 +318,10 @@
          (fit (string->number (nth parts 3)))
          (ms (if (string=? (nth parts 4) "") (list) (map string->number (split-on (nth parts 4) ","))))
          (ems (nth parts 5)) (pend (string->number (nth parts 6))) (err (if (> (length parts) 7) (nth parts 7) ""))
+         (flk (if (> (length parts) 8) (string->number (nth parts 8)) 0))
          (c (hash-ref CANDS id)) (pol (nth c 0)) (p (policy-by-name pol)) (noise (nth c 4)))
     (set! EVALS (+ EVALS 1))
+    (set! FLAKES (+ FLAKES flk))
     (hinc! PEVALS pol 1)
     (if (> pend MAX-PENDING) (set! MAX-PENDING pend) #f)
     (if (string=? noise "none") #f (set! NOISY (+ NOISY 1)))
@@ -313,6 +336,7 @@
         (begin
           (hash-set! SRC-CACHE (nth c 5) -1000.0)
           (hinc! REJECTS reason 1)
+          (hinc! KREJ pol 1)
           (if (string=? noise "none") (set! CLEAN-REJECTED (+ CLEAN-REJECTED 1)) (set! NOISY-REJECTED (+ NOISY-REJECTED 1)))))
     ;; provenance: every attempt
     (emit "prov" (format "~a|~a|~a|~a|~a|~a|~a|~a|~a|~a|~a|~a" id pol (nth c 1) (join-with ";" (map (lambda (x) (r4 x)) (nth c 2)))
@@ -335,7 +359,7 @@
                                           (fiber:spawn (lambda ()
                                                          ;; never leave the coordinator blocked in channel:recv
                                                          (channel:send RCH (try (eval-candidate p id src cc)
-                                                                                (catch (e) (format "~a|reject|runtime|0||0|0|worker:~a" id (clean-err e)))))
+                                                                                (catch (e) (format "~a|reject|runtime|0||0|0|worker:~a|0" id (clean-err e)))))
                                                          id))))
                                       wave ccs))
                            (got (map (lambda (x) (channel:recv RCH)) wave)))
@@ -508,6 +532,7 @@
   (emit "search.noisy" (format "injected=~a rejected=~a clean-rejected=~a" NOISY NOISY-REJECTED CLEAN-REJECTED))
   (emit "search.overlay" (fiber:overlay-report))
   (emit "search.overlay-max-pending" MAX-PENDING)
+  (emit "search.flakes" FLAKES)
   (for-each
     (lambda (p)
       (let* ((pol (p-name p)) (b (hash-ref BEST pol)) (c (hash-ref CANDS (nth b 1))))

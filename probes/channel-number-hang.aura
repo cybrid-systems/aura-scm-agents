@@ -1,0 +1,7 @@
+;; filed as aura#4744
+;; channel:send of a NUMBER from parallel fibers never arrives: the coordinator blocks in channel:recv
+;; forever (timeout rc=124).  The same program sending strings ("1") completes at once.
+;; Aura e6f4169e0 Release, host mode.
+(define CH (channel:create 64))
+(define fs (map (lambda (k) (fiber:spawn (lambda () (channel:send CH 1) k))) (iota 8)))
+(display (map (lambda (k) (channel:recv CH)) (iota 8)))

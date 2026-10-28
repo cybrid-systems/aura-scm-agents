@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Broaden the demand-forecast-error branch to accept market-signal mismatches or any positive forecast bias. This fixes the four listed mismatch failures and four low-bias failures (0.065–0.081), while retaining supplier-delay logic; v1’s 23 unknowns should fall and recovered value should not decrease because these rows are labeled demand-forecast-error.\",\"source\":\"(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((or (market-signal-mismatch? expedite-event) (and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.0))) 'demand-forecast-error) (else 'unknown)))\"}",
+ "finish": "stop",
+ "latency_s": 20.92,
+ "attempts": 1,
+ "prompt_tokens": 1223,
+ "completion_tokens": 2216,
+ "reasoning_tokens": 2051,
+ "prompt_sha": "704151b493cf9955",
+ "provider": "minimax"
+}

@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\n  \"reason\": \"6 of 8 failure rows have confidence below 0.7 (0.44, 0.60, 0.61, 0.66, 0.67, 0.67) yet were arbitrated; adding (high-confidence? edi-change) gates out these low-trust events. Confident true positives keep recall at/above 0.8 while cutting the 0.714 false-arbitration-rate; existing pct/exposure/frozen thresholds stay unchanged.\",\n  \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"\n}",
+ "finish": "stop",
+ "latency_s": 71.61,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 2822,
+ "reasoning_tokens": 2640,
+ "prompt_sha": "aeefe8b726e381d1",
+ "provider": "glm"
+}

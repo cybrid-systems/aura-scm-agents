@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"V1’s 34 supplier switches cost 45,000 each and accompany all four stockouts; alert-planner costs 35,000 and always arrives in time. Replacing that branch should reduce total cost from 2,165,000 to 1,225,000 and stockouts from 4 to 0, including the medium 2.8- and 5.3-day failures, without raising either gate metric.\",\"source\":\"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (>= (risk-rank risk-level) (risk-rank 'high))\\n          (< inventory-days 5))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    ((>= (risk-rank risk-level) (risk-rank 'medium))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 107.41,
+ "attempts": 2,
+ "prompt_tokens": 2938,
+ "completion_tokens": 16326,
+ "reasoning_tokens": 16132,
+ "prompt_sha": "9dd93c6ad419c9fd",
+ "provider": "minimax"
+}

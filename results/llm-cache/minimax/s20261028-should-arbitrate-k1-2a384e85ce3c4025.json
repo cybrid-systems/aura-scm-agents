@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add the supplied high-confidence gate to the existing conditions. V1 makes 20 false arbitrations among 28 decisions (71.4%) while recall is 1.0; six of eight listed false positives have confidence below 0.7 and would be suppressed, sharply lowering false-arbitration rate while preserving the 0.8 recall requirement.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 29.94,
+ "attempts": 1,
+ "prompt_tokens": 1098,
+ "completion_tokens": 2091,
+ "reasoning_tokens": 1942,
+ "prompt_sha": "2a384e85ce3c4025",
+ "provider": "minimax"
+}

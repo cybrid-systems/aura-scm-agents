@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"The medium/high branch always paid 45k for supplier-switches: wasted when inventory>=10 (rows 10.0, 11.5, 12.4, 13.2: regular lead 4-8 arrives first) and still 195k+stockout when tight (2.8, 5.3). Expedite (35k) always arrives on time and strictly dominates the 45k supplier, so medium/high with inventory-days<10 now expedites; roomy inventory monitors.\", \"source\": \"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (< inventory-days 10)\\n          (>= (risk-rank risk-level) (risk-rank 'medium)))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 184.48,
+ "attempts": 1,
+ "prompt_tokens": 1323,
+ "completion_tokens": 6964,
+ "reasoning_tokens": 6763,
+ "prompt_sha": "b062baff2c5357cc",
+ "provider": "glm"
+}

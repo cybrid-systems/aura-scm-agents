@@ -8,7 +8,7 @@ An optional LLM step writes the planner-facing explanation only; it never makes 
 
 中文说明见下方 [中文](#中文)。
 
-New: [automatic evolution with swarm search](#automatic-evolution-swarm-search-over-the-policies-pso--aco-fibers-cow-overlay) (`scripts/run_search.py`).
+New: [automatic evolution with swarm search](#automatic-evolution-swarm-search-over-the-policies-pso--aco-fibers-cow-overlay) (`scripts/run_search.py`) and [LLM proposes, swarm fine-tunes](#llm-proposes-swarm-fine-tunes-hold-out-evaluation-glm-53-flash-vs-minimax-m31-flash) (`scripts/llm_search.py`, hold-out evaluated).
 
 ## Quick start
 
@@ -90,8 +90,8 @@ recovered amount not worse; expedite stockouts and cost not worse.
 | | gate | | pass | **fail → restored** | |
 | expedite-response | supplier switches (40 risk events) | 34 | 6 | 0 | 6 |
 | | internal rebalances | 0 | 34 | 0 | 34 |
-| | expedites / stockouts | 1 / 4 | 1 / 4 | 1 / 13 | 1 / 4 |
-| | cost | 2,150,000 | 1,094,000 | 1,970,000 | 1,094,000 |
+| | expedites / stockouts | 1 / 4 | 1 / 3 | 1 / 7 | 1 / 3 |
+| | cost (cost model v2, below) | 2,165,000 | 1,800,500 | 1,085,000 | 1,800,500 |
 | | gate | | pass | **fail → restored** | |
 
 Caveat: the history labels are synthetic and were generated from domain rules close to the v2 policies, so the v2
@@ -114,7 +114,7 @@ python3 scripts/run_search.py            # N = 0,1,4,8,16 + one commit run at N=
 SCM_SEARCH_N=8 scripts/run_search.sh     # one run, raw @@key=value lines
 python3 -m unittest tests/test_search.py # parse tests; e2e (tiny budget) when AURA_BIN/AURA_STDLIB are set
 ```
-Knobs: `SCM_SEARCH_N` (fibers per wave, 0 = serial), `SCM_SEED`, `SCM_PSO_POP/GENS`, `SCM_ACO_ANTS/ITERS`, `SCM_EVAL_REPS`,
+Knobs: `SCM_SEARCH_N` (fibers per wave, 0 = serial), `SCM_SEARCH_SEED`, `SCM_PSO_POP/GENS`, `SCM_ACO_ANTS/ITERS`, `SCM_EVAL_REPS`,
 `SCM_NOISE_P` (share of candidates that get a deliberate defect, to exercise the gate), `SCM_STAGES` (default `aco,pso,aco`), `SCM_COMMIT`.
 
 **Search space.**
@@ -141,29 +141,29 @@ applies the messages sorted by candidate id, so results are bit-identical for ev
 workspace: it `mutate:rebind`s the winners (with a reason), checks the installed metrics equal the fiber's, then runs
 two rollback drills (a worse candidate, and a truncated source), using `ast:snapshot`/`ast:restore`.
 
-### Results (seed 20261028, PSO 16×10, ACO 16×8 ×2, 20 reps; Aura main e6f4169e0, 8 vCPU)
+### Results (seed 20261028, PSO 16×10, ACO 16×8 ×2, 20 reps; cost model v2; train rows; Aura main e6f4169e0, 8 vCPU)
 | policy | metrics | v1 | v2 | swarm best | fitness v1 / v2 / best | evals (policy) | evals to reach v2 (within policy) |
 |---|---|---|---|---|---|---|---|
 | `should-arbitrate?` | arbitrations, false_arbitrations, false_alarm_rate, recall | 28, 20, 0.714, 1 | 7, 0, 0, 0.875 | **8, 0, 0, 1** | 0.286 / 0.875 / **1** | 215 | 153 |
-| `claim-root-cause` | accuracy, unknown, recovered, recovery_rate | 0.708, 23, 3.161M, 0.607 | 1, 9, 5.21M, 1 | **1, 9, 5.21M, 1** | 1.315 / 2 / **2** | 211 | 5 |
-| `expedite-response` | expedites, supplier_switches, rebalances, stockouts, cost | 1, 34, 0, 4, 2.15M | 1, 6, 34, 4, 1.094M | **0, 6, 40, 0, 0.51M** | -2.55 / -1.494 / **-0.51** | 200 | 2 |
+| `claim-root-cause` | accuracy, unknown, recovered, recovery_rate | 0.708, 23, 3.161M, 0.607 | 1, 9, 5.21M, 1 | **1, 9, 5.21M, 1** | 1.315 / 2 / **2** | 211 | 220 |
+| `expedite-response` | expedites, supplier_switches, rebalances, stockouts, cost | 1, 34, 0, 4, 2.165M | 1, 6, 34, 3, 1.8005M | **22, 1, 13, 0, 1.01M** | -2.565 / -2.1005 / **-1.01** | 218 | 428 |
 
 N-scaling (separate processes, same seed; the search phase only):
-| N fibers | search wall s (median of 3) | runs (s) | speed-up vs serial | identical result |
-|---|---|---|---|---|
-| 0 (serial, no fibers) | 106.0 | 106.5 / 102.8 / 106.0 | 1.00× | True |
-| 1 | 109.5 | 109.1 / 110.9 / 109.5 | 0.97× | True |
-| 4 | 54.1 | 52.5 / 54.1 / 54.1 | 1.96× | True |
-| 8 | 45.7 | 52.2 / 42.2 / 45.7 | 2.32× | True |
-| 16 | 44.9 | 44.9 / 46.0 / 42.9 | 2.36× | True |
+| N fibers | search wall s (one run each) | speed-up vs serial | identical result |
+|---|---|---|---|
+| 0 (serial, no fibers) | 173.6 | 1.00× | True |
+| 1 | 173.7 | 1.00× | True |
+| 4 | 111.3 | 1.56× | True |
+| 8 | 60.9 | 2.85× | True |
+| 16 | 60.8 | 2.85× | True |
 
-Gate: 626 candidates evaluated, 90 rejected (0.144); every injected defect was rejected (injected=90 rejected=90 clean-rejected=0); reasons parse=29 type=42 type-lint=19 runtime=0.
+Gate: 644 candidates evaluated, 92 rejected (0.143); every injected defect was rejected (injected=92 rejected=92 clean-rejected=0); reasons parse=29 type=44 type-lint=19 runtime=0.
 
 The commit and rollback drills all pass: installed metrics equal the fiber-scored metrics, v1 and v2 are reproduced from the policy files,
 and after rolling back a worse candidate both metrics and source are byte-identical. A truncated source is caught by the harness guard,
-and the workspace stays unchanged. Commit phase 9030 ms for the 3 policies; `(query :mutation-log)` has 10 entries.
+and the workspace stays unchanged. Commit phase 17191 ms for the 3 policies; `(query :mutation-log)` has 10 entries.
 
-aura#4707 ("fibers never run in parallel") **no longer holds**. Since #4717 the CPU-bound scoring scales to about 2.5× at N=8 on 8 vCPUs. It
+aura#4707 ("fibers never run in parallel") **no longer holds**. Since #4717 the CPU-bound scoring scales to about 2.85× at N=8 on 8 vCPUs. It
 flattens at N=16, where the coordinator's serial compile and apply and the wave barrier dominate. The demo itself (`run_demo.py`) still
 claims no speed-up.
 
@@ -175,10 +175,9 @@ claims no speed-up.
   unbalanced source (aura#4736). Commit drills run as top-level forms, because `ast:snapshot`/`restore` get slower when nested (aura#4737): 7 min 49 s nested vs ~1 s at top level.
 * **std/pso is a global singleton without ask/tell** (aura#4739). The harness reads `pso:population`, scores the generation itself and feeds
   `pso:step!` a lookup. There is no multi-objective support (aura#4740) and the built-in `"parallel"` mode is unbounded and unisolated (aura#4741).
-* **In-sample search on 60 EDI rows / synthetic labels.** The search fits the back-test it is scored on. arbitration fitness 1.0 (recall 1.0,
-  0 false arbitrations) beats v2 *on this data*, but there is no hold-out split yet, so read it as "the mechanism finds the optimum", not as a better policy.
-  The expedite optimum (rebalance at every risk level) exploits the mock cost model, where a rebalance is cheap and falls back to the
-  alternative supplier when there is no sister-plant stock.
+* **Synthetic labels; train-only search.** The table above is in-sample (train rows). Hold-out numbers for the swarm and the LLM arms
+  are in the next section: swarm-only arbitration (train 1.0) drops to 0.889 on hold-out, the same as v2. The old "rebalance at every risk level"
+  expedite optimum exploited the v1 mock cost model; cost model v2 (next section) closes it.
 
 ### Filed swarm-search issues / 群体搜索相关问题
 
@@ -195,6 +194,136 @@ claims no speed-up.
 | [#4741](https://github.com/cybrid-systems/aura/issues/4741) std/swarm bounded, isolated fiber-parallel evaluation | improvement | — |
 | [#4742](https://github.com/cybrid-systems/aura/issues/4742) dry-run parse/typecheck of a candidate define | improvement | — |
 | [#4715 comment](https://github.com/cybrid-systems/aura/issues/4715#issuecomment-6468492917) field report: env overlay works; workspace fork missing | feedback | — |
+| [#4743](https://github.com/cybrid-systems/aura/issues/4743) `quote` desugars/evaluates/hangs on special forms in its datum | bug | probes/quote-special-forms.aura |
+| [#4744](https://github.com/cybrid-systems/aura/issues/4744) `channel:send` of a number from parallel fibers never arrives | bug | probes/channel-number-hang.aura |
+| [#4745](https://github.com/cybrid-systems/aura/issues/4745) pure closure via inner lambda in parallel fibers sometimes returns `<unknown>` | bug | probes/closure-unknown-in-fibers.aura |
+| [#4746](https://github.com/cybrid-systems/aura/issues/4746) datum reader from strings (`read-from-string`) + round-trip printer | improvement | — |
+
+## LLM proposes, swarm fine-tunes (hold-out evaluation, GLM-5.3-Flash vs MiniMax-M3.1-Flash)
+
+`scripts/llm_search.py` + `aura/llm-search.aura`. An LLM reads a policy's v1 source, its train metrics and up to 8 failing
+train rows, and proposes **one structural edit plus a reason** as JSON `{"reason", "source"}`. The proposal goes through the same
+gate / fiber / COW-overlay path as every swarm candidate. The swarm (ACO → PSO → ACO, coordinator-only state, aura#4730) then
+fine-tunes the best LLM candidate. Its knobs are extracted generically from whatever source the LLM wrote: numeric literals
+become PSO dims; `and`/`or` operands, `cond` clauses and action/label leaves become ACO decisions. Winners are committed with
+`mutate:rebind` and a reason that carries the LLM reason and the swarm provenance.
+
+```bash
+export AURA_BIN=... AURA_STDLIB=... [AURA_LIBDIR=...]
+python3 scripts/llm_search.py --models glm,minimax --k 4 --env-file ~/.config/aura-build/minimax.env   # ~35 min, 8 vCPU
+python3 scripts/llm_search.py --models glm,minimax --k 4 --reanalyze   # re-summarize the last run, no LLM/Aura calls
+python3 scripts/llm_search.py --models mock --seeds 1 --small          # deterministic mock LLM, no network
+python3 -m unittest tests/test_llm_search.py
+```
+Providers (`scripts/llm_client.py`, OpenAI-compatible, keys read from files and never printed, logged or cached):
+* `glm`: `glm-5.3-flash` on the coding-plan endpoint `open.bigmodel.cn/api/coding/paas/v4`, key `~/.glm-key`.
+* `minimax`: `MiniMax-M3.1-Flash` (`SCM_MINIMAX_MODEL` overrides), key via `minimax.env`.
+* `deepseek`.
+
+Settings: max_tokens 8000, doubled once if a reasoning model returns empty content; transient 429/5xx/timeout/TLS errors are
+retried 3×; at most 3 concurrent calls per provider. Responses are cached in `results/llm-cache/<model>/` keyed by the prompt hash,
+so a rerun spends no tokens.
+
+**Hold-out split.** `scripts/gen_data.py` draws a hold-out set from an independent seed (20261029): 120 EDI changes, 96 claims and
+80 risk events. The train rows are byte-identical to before. All selection (best of K, swarm, commit choice) uses train rows only.
+The hold-out rows are scored on the coordinator for reporting and never reach a prompt (prompts show train outcomes only).
+
+**Expedite cost model v2 (the "rebalance everywhere" exploit is closed).** Each risk event now has a hidden outcome: the risk
+materializes with p = .8 / .45 / .12 (high / medium / low), plus transfer and alternative-supplier lead times.
+* `alert-planner` costs 35k and always arrives in time.
+* `suggest-alternative-supplier` costs 45k and can arrive too late.
+* `propose-internal-rebalance` costs 6k + 1.5k per earlier rebalance, can arrive too late, and falls back to the alternative
+  supplier when there is no sister stock.
+* `monitor` costs 0.
+
+A stockout costs 150k. Fitness is normalized per 40 events. Rebalance-everywhere now scores −2.43 on train, worse than v1 (−2.565)
+→ v2 (−2.10) → the optimum (≈ −0.7). The demo table above uses this model.
+
+**Arms** (seeds 20261028/29/30; K = 4 proposals per policy, model and seed, temperature 0.8; fibers N = 8; 5 metric reps;
+swarm budget PSO 16×10, ACO 16×8 ×2 for swarm-only and for LLM+swarm alike):
+
+| policy | arm | hold-out fitness, mean ± sd (3 seeds) | train fitness | gap (train − hold-out) | hold-out metrics, first seed | evals | gate reject rate |
+|---|---|---|---|---|---|---|---|
+| `should-arbitrate?` | v1 (as given) | 0.295 ± 0.000 | 0.286 | -0.009 | 61, 43, 0.705, 1 | — | — |
+| `should-arbitrate?` | hand v2 | 0.889 ± 0.000 | 0.875 | -0.014 | 16, 0, 0, 0.889 | — | — |
+| `should-arbitrate?` | swarm only | 0.889 ± 0.000 | 1.000 | 0.111 | 16, 0, 0, 0.889 | 209 | 0.179 |
+| `should-arbitrate?` | GLM LLM-only (best of 4) | 0.750 ± 0.000 | 0.500 | -0.250 | 24, 6, 0.25, 1 | 4 | 0.000 |
+| `should-arbitrate?` | GLM LLM+swarm | 0.967 ± 0.047 | 0.963 | -0.004 | 20, 2, 0.1, 1 | 197 | 0.144 |
+| `should-arbitrate?` | MiniMax LLM-only (best of 4) | 0.846 ± 0.068 | 0.701 | -0.146 | 16, 0, 0, 0.889 | 4 | 0.000 |
+| `should-arbitrate?` | MiniMax LLM+swarm | **1.000** ± 0.000 | 1.000 | 0.000 | 18, 0, 0, 1 | 196 | 0.160 |
+| `claim-root-cause` | v1 (as given) | 1.108 ± 0.000 | 1.315 | 0.207 | 0.615, 53, 4.91M, 0.493 | — | — |
+| `claim-root-cause` | hand v2 | **2.000** ± 0.000 | 2.000 | 0.000 | 1, 16, 9.95M, 1 | — | — |
+| `claim-root-cause` | swarm only | **2.000** ± 0.000 | 2.000 | 0.000 | 1, 16, 9.95M, 1 | 219 | 0.096 |
+| `claim-root-cause` | GLM LLM-only (best of 4) | 1.896 ± 0.000 | 2.000 | 0.104 | 0.958, 20, 9.34M, 0.938 | 4 | 0.167 |
+| `claim-root-cause` | GLM LLM+swarm | 1.896 ± 0.000 | 2.000 | 0.104 | 0.958, 20, 9.34M, 0.938 | 313 | 0.085 |
+| `claim-root-cause` | MiniMax LLM-only (best of 4) | 1.927 ± 0.000 | 2.000 | 0.073 | 0.969, 19, 9.54M, 0.958 | 4 | 0.000 |
+| `claim-root-cause` | MiniMax LLM+swarm | 1.927 ± 0.000 | 2.000 | 0.073 | 0.969, 19, 9.54M, 0.958 | 247 | 0.107 |
+| `expedite-response` | v1 (as given) | -1.883 ± 0.000 | -2.565 | -0.682 | 5, 52, 0, 5, 3.27M, 80 | — | — |
+| `expedite-response` | hand v2 | -1.838 ± 0.000 | -2.100 | -0.263 | 5, 10, 52, 3, 3.38M, 80 | — | — |
+| `expedite-response` | swarm only | -1.293 ± 0.000 | -1.010 | 0.283 | 45, 2, 12, 3, 2.29M, 80 | 221 | 0.150 |
+| `expedite-response` | GLM LLM-only (best of 4) | -0.757 ± 0.108 | -0.450 | 0.307 | 12, 4, 13, 3, 1.25M, 80 | 4 | 0.000 |
+| `expedite-response` | GLM LLM+swarm | **-0.569** ± 0.055 | -0.346 | 0.223 | 12, 2, 4, 3, 0.993M, 80 | 266 | 0.113 |
+| `expedite-response` | MiniMax LLM-only (best of 4) | -1.038 ± 0.297 | -0.945 | 0.092 | 57, 0, 0, 2, 2.29M, 80 | 4 | 0.000 |
+| `expedite-response` | MiniMax LLM+swarm | -1.285 ± 0.534 | -0.703 | 0.582 | 45, 0, 0, 7, 2.62M, 80 | 249 | 0.120 |
+
+Per model (all 3 seeds):
+
+| | GLM-5.3-Flash (`glm-5.3-flash`, coding endpoint) | MiniMax-M3.1-Flash |
+|---|---|---|
+| LLM calls (3 seeds × 3 policies × K=4) | 36 | 36 |
+| valid answers (JSON + one balanced define, right name) | 35/36 (0.97); 1 API failure (TLS EOF after retries) | 36/36 (1.00); 0 parse failures |
+| proposals passing the Aura gate | 34/36 (0.94) | 36/36 (1.00) |
+| input / output tokens (of which reasoning) | 38,480 / 92,570 (85,819) | 54,329 / 221,086 (214,814) |
+| latency per call, mean / p50 / max | 71.32 / 35.29 / 191.38 s | 58.52 / 39.4 / 198.1 s |
+| cost at list price ($0.15 in; $0.50 / $0.60 out per 1M) | $0.0521 | $0.1408 |
+| accepted improvements, LLM-only / LLM+swarm (of 9) | 9 / 9 (all also better than v1 on hold-out) | 9 / 9 (all also better than v1 on hold-out) |
+| cost per accepted improvement | $0.0058 (14,561 tokens); LLM+swarm adds 259 evals each | $0.0156 (30,602 tokens); LLM+swarm adds 231 evals each |
+
+
+Cost assumes list prices; the GLM coding endpoint is a subscription, so its marginal cost is $0. "Accepted" means
+beats v1 on train fitness **and** passes the business gate vs v1.
+
+**Findings.**
+* **LLM+swarm is the best arm on two of three policies.** On `should-arbitrate?`, MiniMax+swarm gets hold-out 1.000 (recall 1, no
+  false arbitrations) and GLM+swarm 0.967, against 0.889 for v2 and swarm-only. On `expedite-response`, GLM+swarm gets −0.569
+  vs −1.293 for swarm-only and −1.838 for v2; on the first seed its hold-out cost is 0.99M vs 2.29M (swarm-only) and 3.38M (v2).
+  The LLM supplies the structure: GLM proposes "medium or high risk and < 6 days → `alert-planner`; < 9 days → rebalance;
+  otherwise `monitor`". That three-band structure is outside the swarm's template space. The swarm then tunes the band edge
+  (9 → 7 days on the first seed).
+* **The swarm fixes LLM threshold guesses but can overfit.** MiniMax+swarm on `expedite-response` reaches better train fitness than
+  MiniMax-only (−0.70 vs −0.95) but worse hold-out (−1.285 vs −1.038, gap 0.58, 7 stockouts on the first seed). On two seeds ACO switched *high* risk to
+  `monitor`, which fits 40 train events and fails on hold-out. The hold-out split exists to show exactly this; a domain guard
+  (e.g. high risk must never be `monitor`) belongs in the business gate.
+* **Claims:** both LLMs broaden the forecast branch, and that ties v2 on train (2.0). On hold-out it is slightly worse (1.90 / 1.93
+  vs 2.0) because a lowered bias threshold over-attributes. The swarm cannot break a train tie, and the commit choice may not look
+  at hold-out data, so the committed GLM claims policy is not the hold-out-best one.
+* **GLM vs MiniMax.**
+  * Both always returned well-formed JSON (one GLM call failed with a TLS EOF).
+  * Every MiniMax proposal passed the gate; one GLM proposal failed on output type.
+  * MiniMax used 2.4× the output tokens (mostly reasoning) at a similar median latency (≈ 35-40 s; long tails up to ≈ 3 min for both).
+  * GLM proposals are more aggressive and more often structurally new: its expedite edits beat everything.
+  * MiniMax proposals are conservative, mostly v2-like: its arbitration edit plus swarm is the best on that policy.
+* **Reason quality.** Both cite concrete metrics and failure rows.
+  * GLM (expedite): "All 4 stockouts were medium-level with tiny inventory (2.8, 5.3d): alerting medium below 6 days fixes these
+    (35000 vs 195000)…". It reasons from the outcome columns and is specific, but sometimes over-claims ("stockouts stay flat").
+  * MiniMax (arbitration): "V1 makes 20 false arbitrations among 28 decisions (71.4%) while recall is 1.0; six of eight listed false
+    positives have confidence below 0.7…". It is accurate and gate-aware ("preserving the 0.8 recall requirement") but rarely
+    proposes more than one change.
+* **Commits** (first seed): per model, trial commits of all 3 policies pass the business gate, installed metrics equal the fiber
+  metrics, and v1 is restored. Then the train-best LLM+swarm per policy is kept: MiniMax for arbitration, GLM for claims and
+  expedite. `mutation-log` has 6 entries.
+  * Each rebind reason reads `LLM <model>: <reason> | swarm aco,pso,aco: llm-proposal #a -> base #b -> best #c (n evals, train fit x)`.
+  * `results/llm-search-provenance.jsonl` has one row per LLM call (reason, source, tokens, latency, prompt hash, attempt id and
+    gate result), one per Aura attempt, and one per commit (base/best attempt ids, swarm attempt range, before/after).
+
+**Limits.**
+* 3 seeds; the swarm reaches the same optimum on every seed, so its sd is 0.
+* The LLM spread comes from sampling only (temperature 0.8, no API seed is passed).
+* Labels are synthetic.
+* About 8-11 candidates per run hit the fiber closure flake (aura#4745); retry + majority vote absorb it, counted as `llm.flakes`.
+* Policy sources are read with a hand-written s-expression reader, because `quote` mangles special forms (aura#4743) and there is no
+  datum reader (aura#4746).
+* Fiber messages are strings because numbers hang `channel:recv` (aura#4744).
 
 ## Honest notes / limitations
 
@@ -250,7 +379,7 @@ KNU-55，共 7 个节点 3 跳；每个节点一个 scope 任务；`expedite-res
   动作以数据列表返回；增加入口函数供 `query:calls`/def-use 定位；符号比较直接用 `eq?`（#4727 已修复，按名字比较的绕行已删除）。
 
 **进化结果**：误仲裁率 0.714 → 0.0（召回 1.0 → 0.875）；索赔归因准确率 0.708 → 1.0、正确归因金额 316.1 万 → 521.0 万；
-供应商切换 34 → 6、成本 215 万 → 109.4 万、缺货不变（4）。每条策略都演示了一次"坏变更"被门禁拒绝并 `ast:restore` 回滚，
+供应商切换 34 → 6、成本 216.5 万 → 180.05 万、缺货 4 → 3（成本模型 v2）。每条策略都演示了一次"坏变更"被门禁拒绝并 `ast:restore` 回滚，
 以及语法错误的 rebind 被直接拒绝。注意：历史标签是合成数据，v2 分数偏乐观，重点在机制。
 
 **诚实说明**（在 Aura e6f4169e0 上验证，JIT 开/关各 10 次无丢失任务）：fiber 体自 #4717 起已真正并行，但本 demo 共享黑板、
@@ -274,23 +403,55 @@ KNU-55，共 7 个节点 3 跳；每个节点一个 scope 任务；`expedite-res
 | 策略 | 指标 | v1 | v2 | 搜索最优 | 适应度 v1 / v2 / 最优 | 评估次数 | 达到 v2 所需评估 |
 |---|---|---|---|---|---|---|---|
 | `should-arbitrate?` | arbitrations, false_arbitrations, false_alarm_rate, recall | 28, 20, 0.714, 1 | 7, 0, 0, 0.875 | **8, 0, 0, 1** | 0.286 / 0.875 / **1** | 215 | 153 |
-| `claim-root-cause` | accuracy, unknown, recovered, recovery_rate | 0.708, 23, 3.161M, 0.607 | 1, 9, 5.21M, 1 | **1, 9, 5.21M, 1** | 1.315 / 2 / **2** | 211 | 5 |
-| `expedite-response` | expedites, supplier_switches, rebalances, stockouts, cost | 1, 34, 0, 4, 2.15M | 1, 6, 34, 4, 1.094M | **0, 6, 40, 0, 0.51M** | -2.55 / -1.494 / **-0.51** | 200 | 2 |
+| `claim-root-cause` | accuracy, unknown, recovered, recovery_rate | 0.708, 23, 3.161M, 0.607 | 1, 9, 5.21M, 1 | **1, 9, 5.21M, 1** | 1.315 / 2 / **2** | 211 | 220 |
+| `expedite-response` | expedites, supplier_switches, rebalances, stockouts, cost | 1, 34, 0, 4, 2.165M | 1, 6, 34, 3, 1.8005M | **22, 1, 13, 0, 1.01M** | -2.565 / -2.1005 / **-1.01** | 218 | 428 |
 
-| fiber 数 N | 搜索耗时 s（3 次中位数） | 各次 (s) | 相对串行加速 | 结果一致 |
-|---|---|---|---|---|
-| 0 (serial, no fibers) | 106.0 | 106.5 / 102.8 / 106.0 | 1.00× | True |
-| 1 | 109.5 | 109.1 / 110.9 / 109.5 | 0.97× | True |
-| 4 | 54.1 | 52.5 / 54.1 / 54.1 | 1.96× | True |
-| 8 | 45.7 | 52.2 / 42.2 / 45.7 | 2.32× | True |
-| 16 | 44.9 | 44.9 / 46.0 / 42.9 | 2.36× | True |
+| fiber 数 N | 搜索耗时 s（各一次） | 相对串行加速 | 结果一致 |
+|---|---|---|---|
+| 0 (serial, no fibers) | 173.6 | 1.00× | True |
+| 1 | 173.7 | 1.00× | True |
+| 4 | 111.3 | 1.56× | True |
+| 8 | 60.9 | 2.85× | True |
+| 16 | 60.8 | 2.85× | True |
 
-门禁：评估 626 个，拒绝 90 个，注入缺陷全部被拒（injected=90 rejected=90 clean-rejected=0），无误拒；提交与回滚演练全部通过（安装后指标与 fiber 打分一致，回滚后源码与指标逐字节一致，截断源码被拦截）。
+门禁：评估 644 个，拒绝 92 个，注入缺陷全部被拒（injected=92 rejected=92 clean-rejected=0），无误拒；提交与回滚演练全部通过（安装后指标与 fiber 打分一致，回滚后源码与指标逐字节一致，截断源码被拦截）。
 
 **说明/限制**：没有按 fiber 的工作区分叉，候选在协调者上串行编译（fiber 内字符串 `eval` 会死锁，#4734）；固定参数调用绕开 rest 参数在并行 fiber
 中损坏（#4733）；数字加引号检查绕开 `and` 吞掉类型错误（#4735）；括号检查绕开宽松解析（#4736）；提交演练放在顶层，避免嵌套时 snapshot/restore
 线性变慢（#4737，嵌套 7 分 49 秒 vs 顶层约 1 秒）。std/pso 是全局单例、无 ask/tell（#4739），无多目标（#4740），内置 parallel 无并发上限/隔离（#4741）。
-搜索在 60 条合成 EDI 数据上样本内拟合，没有留出集：仲裁适应度 1.0 超过 v2 仅说明机制能找到最优，不代表策略更好。#4707 的“无加速”结论已不成立。
+上表为训练集（样本内）结果；留出集结果见下方 LLM+群体一节：纯群体的仲裁策略（训练 1.0）在留出集上为 0.889，与 v2 相同。旧成本模型下“处处调拨”的漏洞已由成本模型 v2 堵上。#4707 的“无加速”结论已不成立。
+
+**LLM 提议 + 群体微调（留出集评估，GLM-5.3-Flash 对比 MiniMax-M3.1-Flash）**
+
+`scripts/llm_search.py` + `aura/llm-search.aura`。
+
+**流程。** LLM 读取策略 v1 源码、训练集指标和最多 8 条失败样本，以 JSON 给出"一处结构修改 + 原因"。提议与群体候选走同一条
+门禁 / fiber / COW overlay 路径。群体（ACO→PSO→ACO，状态只在协调者中）在最佳 LLM 候选上微调，旋钮从任意 LLM 源码中通用提取：
+数值 → PSO 维度；and/or 操作数、cond 分支、动作/标签 → ACO 决策。最后带"LLM 原因 + 群体溯源"做 `mutate:rebind` 提交。
+
+**留出集与成本模型。** 留出集来自独立种子：EDI 120 条、索赔 96 条、风险事件 80 条。选择只用训练集，留出集只用于报告，从不进入提示词。
+加急成本模型 v2 加入隐藏结果：风险是否发生、调拨/替代供应商到货天数、姐妹工厂库存消耗。"处处内部调拨"在训练集上 −2.43，
+比 v1 还差，漏洞已堵上。
+
+**结果**（3 个种子，K=4）：
+- 仲裁：MiniMax+群体留出集 1.000，GLM+群体 0.967，v2 与纯群体都是 0.889。
+- 加急：GLM+群体 −0.569，纯群体 −1.293，v2 −1.838；首个种子留出集成本 99 万 vs 229 万 vs 338 万。
+- 索赔：两种 LLM 训练集与 v2 持平（2.0），但留出集略差（1.90/1.93 vs 2.0）。
+- 过拟合：MiniMax+群体在加急上训练更好、留出集更差（差距 0.58），这正是需要留出集的原因。
+
+**模型对比。**
+- 有效 JSON：GLM 35/36（1 次 TLS 断连），MiniMax 36/36。
+- 门禁通过：GLM 34/36，MiniMax 36/36。
+- 输出 token：GLM 9.3 万，MiniMax 22.1 万（大部分是推理）。
+- 中位延迟：约 35 秒 vs 39 秒。
+- 按标价总成本：$0.052 vs $0.141（GLM 编程套餐为订阅制，边际成本为 0）。
+- 每个"被接受的改进"：$0.006 vs $0.016。
+- 风格：GLM 更激进、结构更新颖；MiniMax 更保守、接近 v2。两者的原因都引用具体指标和失败样本。
+
+**溯源与提交。** 每次提交的原因、LLM 原因和群体尝试 id 写入审计轨迹与 `results/llm-search-provenance.jsonl`。
+
+**新发现的 Aura 问题**（见下表）：#4743 `quote` 会改写/求值/卡死特殊形式；#4744 fiber 中 `channel:send` 数字会卡死；
+#4745 并行 fiber 中闭包偶发返回 `<unknown>`；#4746 需要字符串 datum 读取器。
 
 ## Filed orchestration issues / 已提交的编排问题
 

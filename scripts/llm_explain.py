@@ -2,30 +2,22 @@
 """Optional: turn results/demo.json into a short planner-facing explanation with an LLM.
 
 The decision itself is always computed deterministically by the Aura agents; the LLM only
-writes prose. Providers (OpenAI-compatible /chat/completions):
+writes prose. Providers (OpenAI-compatible /chat/completions, see llm_client.py):
+  --provider glm      : GLM-5.3 Flash ("glm-5.3-flash", coding-plan endpoint), key file $GLM_KEY_FILE
+                        (default ~/.glm-key)
   --provider deepseek : model DeepSeek-V4.1-Flash (id "deepseek-flash"), key file $DEEPSEEK_KEY_FILE
                         (default ~/.deepseek-key)
   --provider minimax  : model MiniMax-M3.1-Flash, key file $MINIMAX_API_KEY_FILE, base URL $MINIMAX_BASE_URL
                         (both may be set in an env file passed with --env-file)
 Keys are read from files only and are never printed or written to results.
 """
-import argparse, json, os, re, urllib.request
+import argparse, json, sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from llm_client import PROVIDERS, call as llm_call, load_env_file  # noqa: E402
+
 REPO = Path(__file__).resolve().parent.parent
-PROVIDERS = {
-    "deepseek": dict(base="https://api.deepseek.com", model="deepseek-flash", key_env="DEEPSEEK_KEY_FILE",
-                     key_default="~/.deepseek-key", base_env="DEEPSEEK_BASE_URL"),
-    "minimax": dict(base="https://api.minimax.cn/v1", model="MiniMax-M3.1-Flash", key_env="MINIMAX_API_KEY_FILE",
-                    key_default="", base_env="MINIMAX_BASE_URL"),
-}
-
-
-def load_env_file(p):
-    for line in Path(os.path.expanduser(p)).read_text().splitlines():
-        if "=" in line and not line.lstrip().startswith("#"):
-            k, v = line.split("=", 1)
-            os.environ.setdefault(k.strip(), v.strip().strip('"'))
 
 
 def prompt(r, case):
@@ -41,30 +33,11 @@ def prompt(r, case):
     ]
 
 
-THINK_RE = re.compile(r"<think>.*?</think>", re.S)
-
-
-def call(provider, messages, max_tokens=3000):
-    cfg = PROVIDERS[provider]
-    keyfile = os.path.expanduser(os.environ.get(cfg["key_env"]) or cfg["key_default"])
-    if not keyfile or not Path(keyfile).exists():
-        raise SystemExit(f"{provider}: key file not configured ({cfg['key_env']})")
-    key = Path(keyfile).read_text().strip()
-    model = os.environ.get(f"{provider.upper()}_MODEL") or cfg["model"]
-    base = os.environ.get(cfg["base_env"]) or cfg["base"]
-    req_body = {"model": model, "messages": messages, "temperature": 0, "max_tokens": max_tokens}
-    if provider == "deepseek":
-        req_body["reasoning_effort"] = "low"
-    body = json.dumps(req_body).encode()
-    req = urllib.request.Request(base.rstrip("/") + "/chat/completions", data=body,
-                                 headers={"Content-Type": "application/json", "Authorization": "Bearer " + key})
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        out = json.load(resp)
-    del req  # the only object that held the Authorization header
-    text = THINK_RE.sub("", out["choices"][0]["message"].get("content") or "").strip()
-    if not text:
-        raise SystemExit(f"{provider}: empty answer (finish_reason={out['choices'][0].get('finish_reason')})")
-    return out.get("model", model), text
+def call(provider, messages, max_tokens=8000):
+    r = llm_call(provider, messages, max_tokens=max_tokens)
+    if not r["text"]:
+        raise SystemExit(f"{provider}: empty answer (finish_reason={r['finish']})")
+    return r["model"], r["text"]
 
 
 def main():

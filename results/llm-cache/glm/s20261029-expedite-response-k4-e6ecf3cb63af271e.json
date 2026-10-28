@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"Both example stockouts (195000 each) are medium-risk rows with inventory-days 5.3 and 2.8 falling to suggest-alternative-supplier. Widening the alert-planner branch from high/<5 to medium+/<7 gives premium freight (35000, always on time) there, cutting stockouts and cost; high rows under 7 also drop 45000→35000. Medium/high rows ≥7 keep the supplier branch; low stays monitor.\", \"source\": \"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (>= (risk-rank risk-level) (risk-rank 'medium)) (< inventory-days 7))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    ((>= (risk-rank risk-level) (risk-rank 'medium))\\n     (list 'suggest-alternative-supplier))\\n    (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 46.3,
+ "attempts": 1,
+ "prompt_tokens": 1323,
+ "completion_tokens": 1895,
+ "reasoning_tokens": 1686,
+ "prompt_sha": "e6ecf3cb63af271e",
+ "provider": "glm"
+}

@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"v1's 20/28 false arbitrations mostly show sub-threshold confidence: 6 of 8 failure rows have confidence <0.7 while needed=#f. Adding (high-confidence? edi-change) gates on signal quality, cutting false arbitrations without touching the pct/exposure thresholds that currently deliver recall=1.0.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 39.78,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 1538,
+ "reasoning_tokens": 1393,
+ "prompt_sha": "d2e02bee37b65829",
+ "provider": "glm"
+}

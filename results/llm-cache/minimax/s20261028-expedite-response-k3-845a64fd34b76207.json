@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Replace the medium/high supplier branch with alert-planner. It costs 35,000 versus 45,000 and always arrives in time, so 34 supplier switches become cheaper responses with no stockouts. Projected cost falls from 2,165,000 to 1,225,000 and stockouts from 4 to 0, including the medium 2.8- and 5.3-day failures.\",\"source\":\"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (>= (risk-rank risk-level) (risk-rank 'high))\\n          (< inventory-days 5))\\n      (list 'alert-planner 'immediate-expedite-review))\\n    ((>= (risk-rank risk-level) (risk-rank 'medium))\\n      (list 'alert-planner 'immediate-expedite-review))\\n    (else\\n      (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 49.52,
+ "attempts": 1,
+ "prompt_tokens": 1469,
+ "completion_tokens": 5775,
+ "reasoning_tokens": 5582,
+ "prompt_sha": "845a64fd34b76207",
+ "provider": "minimax"
+}

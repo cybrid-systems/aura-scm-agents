@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"v1's 20 false arbitrations (rate 0.714) are mostly low-confidence events (0.44-0.67). Adding (high-confidence? edi-change) gates on confidence >= 0.7, suppressing those rows; recall should hold at 1.0 since every costly row was a false positive, not a miss, and exposure/pct/frozen guards stay unchanged.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (high-confidence? edi-change)\\n       (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))))\"}",
+ "finish": "stop",
+ "latency_s": 30.68,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 1236,
+ "reasoning_tokens": 1078,
+ "prompt_sha": "2a384e85ce3c4025",
+ "provider": "glm"
+}

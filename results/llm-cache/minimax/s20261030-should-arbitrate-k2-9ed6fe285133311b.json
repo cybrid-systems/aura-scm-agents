@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add the high-confidence gate. V1 has a 0.714 false-arbitration rate (20/28) and fitness 0.286. Six of eight shown false positives have confidence 0.44, 0.60, 0.61, 0.66, or 0.67, so requiring confidence >=0.7 suppresses them while retaining the existing magnitude, exposure, and frozen-horizon checks.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.15) (> inventory-exposure 500000) (not (frozen-horizon? edi-change)) (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 128.54,
+ "attempts": 2,
+ "prompt_tokens": 2194,
+ "completion_tokens": 10717,
+ "reasoning_tokens": 10558,
+ "prompt_sha": "9ed6fe285133311b",
+ "provider": "minimax"
+}

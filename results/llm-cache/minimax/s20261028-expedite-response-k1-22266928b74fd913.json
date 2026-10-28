@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Change the medium/high branch from alternative-supplier to internal-rebalance. V1's 34 switches cost 1,530,000 and accompany 4 stockouts (2,165,000 total). Rebalance costs 6,000 with sister stock and falls back otherwise; transfer is earlier in the medium/2.8 failure (3 versus 4 days), reducing cost without raising stockouts.\",\"source\":\"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (>= (risk-rank risk-level) (risk-rank 'high))\\n           (< inventory-days 5))\\n      (list 'alert-planner 'immediate-expedite-review))\\n    ((>= (risk-rank risk-level) (risk-rank 'medium))\\n      (list 'propose-internal-rebalance))\\n    (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 168.05,
+ "attempts": 2,
+ "prompt_tokens": 2938,
+ "completion_tokens": 14355,
+ "reasoning_tokens": 14170,
+ "prompt_sha": "22266928b74fd913",
+ "provider": "minimax"
+}

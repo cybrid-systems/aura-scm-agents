@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"All shown errors are truth=demand-forecast-error labeled unknown: 5 rows have forecast-bias with bias-amount 0.065-0.081 (below 0.1) and 3 rows have market-mismatch=#t with no other signals. I lower the bias threshold to 0.06 and add a demand-forecast-error branch for market-signal-mismatch when no supplier signal fires, recovering those claims.\", \"source\": \"(define (claim-root-cause expedite-event)\\n  (cond\\n    ((and (edi-increase? expedite-event)\\n          (supplier-lead-time-miss? expedite-event))\\n     'supplier-delay)\\n    ((and (forecast-bias? expedite-event)\\n          (> (bias-amount expedite-event) 0.06))\\n     'demand-forecast-error)\\n    ((and (market-signal-mismatch? expedite-event)\\n          (not (or (edi-increase? expedite-event)\\n                   (supplier-lead-time-miss? expedite-event))))\\n     'demand-forecast-error)\\n    (else 'unknown)))\"}",
+ "finish": "stop",
+ "latency_s": 31.54,
+ "attempts": 1,
+ "prompt_tokens": 1048,
+ "completion_tokens": 1277,
+ "reasoning_tokens": 1030,
+ "prompt_sha": "07aa0414d65a2e04",
+ "provider": "glm"
+}

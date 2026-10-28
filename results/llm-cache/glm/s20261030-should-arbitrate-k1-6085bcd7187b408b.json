@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"Added (high-confidence? edi-change) to the conjunction. 6 of 8 false-arbitration rows (e.g. pct=-0.428 conf=0.66; pct=0.224 conf=0.44; pct=-0.178 conf=0.61) fall below the 0.7 confidence threshold, so this gate directly attacks the 0.714 false-arbitration-rate while keeping pct>0.15/exposure>500000 unchanged to preserve recall >= 0.8.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 53.56,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 1932,
+ "reasoning_tokens": 1746,
+ "prompt_sha": "6085bcd7187b408b",
+ "provider": "glm"
+}

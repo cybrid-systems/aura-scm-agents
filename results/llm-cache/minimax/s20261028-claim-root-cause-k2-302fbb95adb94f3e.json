@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"v1 has accuracy 0.708, 23 unknowns, and 0.607 recovery. Broaden the demand test to market-signal mismatch or forecast bias above 0.05, after the supplier branch. This addresses listed unknowns with mismatch=#t and biases 0.065–0.081, preserves supplier-first classifications, and should increase recovered amount.\",\"source\":\"(define (claim-root-cause expedite-event)\\n  (cond\\n    ((and (edi-increase? expedite-event)\\n          (supplier-lead-time-miss? expedite-event))\\n     'supplier-delay)\\n    ((or (market-signal-mismatch? expedite-event)\\n         (and (forecast-bias? expedite-event)\\n              (> (bias-amount expedite-event) 0.05)))\\n     'demand-forecast-error)\\n    (else 'unknown)))\"}",
+ "finish": "stop",
+ "latency_s": 17.37,
+ "attempts": 1,
+ "prompt_tokens": 1223,
+ "completion_tokens": 1967,
+ "reasoning_tokens": 1782,
+ "prompt_sha": "302fbb95adb94f3e",
+ "provider": "minimax"
+}

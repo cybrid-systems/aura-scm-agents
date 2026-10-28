@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add a high-confidence gate. Six of eight listed false arbitrations have confidence below 0.70, so this removes those rows while preserving magnitude, exposure, and frozen-horizon checks. V1 has FAR 0.714 and fitness 0.286; the edit targets false positives while protecting recall≥0.8. Two listed false positives at 0.83 and 0.91 remain.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.15) (> inventory-exposure 500000) (not (frozen-horizon? edi-change)) (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 36.49,
+ "attempts": 1,
+ "prompt_tokens": 1097,
+ "completion_tokens": 3956,
+ "reasoning_tokens": 3804,
+ "prompt_sha": "6085bcd7187b408b",
+ "provider": "minimax"
+}

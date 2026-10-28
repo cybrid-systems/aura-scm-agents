@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"v1's 34 supplier-switches cost 45000 each and caused all 4 stockouts (late alt-supplier rows like inventory-days=5.3 and 2.8, 195000 each). alert-planner costs 35000 (<45000) and always arrives in time, so repointing the medium/high branch to alert-planner cuts cost to ~1.225M and removes all late-arrival stockouts.\", \"source\": \"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 5))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    ((>= (risk-rank risk-level) (risk-rank 'medium))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 119.45,
+ "attempts": 1,
+ "prompt_tokens": 1323,
+ "completion_tokens": 4728,
+ "reasoning_tokens": 4523,
+ "prompt_sha": "8ff8020f497db257",
+ "provider": "glm"
+}

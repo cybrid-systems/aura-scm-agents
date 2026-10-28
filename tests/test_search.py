@@ -68,7 +68,7 @@ class TestSearchE2E(unittest.TestCase):
         self.assertEqual(nums("tmpl.should-arbitrate?.v1"), [28, 20, 0.714, 1.0])
         self.assertEqual(nums("tmpl.should-arbitrate?.v2"), [7, 0, 0.0, 0.875])
         self.assertEqual(nums("tmpl.claim-root-cause.v2"), [1.0, 9, 5210000, 1.0])
-        self.assertEqual(nums("tmpl.expedite-response.v2"), [1, 6, 34, 4, 1094000])
+        self.assertEqual(nums("tmpl.expedite-response.v2"), [1, 6, 34, 3, 1800500, 40])  # cost model v2
 
     def test_every_injected_defect_rejected_and_no_clean_rejects(self):
         for r in (self.serial, self.fiber):

@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add market-signal-mismatch as demand-forecast-error and classify forecast-bias regardless of amount, covering all 8 costly examples while preserving supplier-delay precedence. This should improve accuracy and recovery without reducing recovered amount, satisfying the business gate.\",\"source\":\"(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((or (forecast-bias? expedite-event) (market-signal-mismatch? expedite-event)) 'demand-forecast-error) (else 'unknown)))\"}",
+ "finish": "stop",
+ "latency_s": 3.7,
+ "attempts": 1,
+ "prompt_tokens": 1223,
+ "completion_tokens": 252,
+ "reasoning_tokens": 127,
+ "prompt_sha": "e4b21191e4f45cf7",
+ "provider": "minimax"
+}

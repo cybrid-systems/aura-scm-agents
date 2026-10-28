@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"False-arbitration-rate 0.714 (20/28) drives the low fitness; 6 of 8 failure rows have confidence below 0.7 (0.44–0.67). Adding (high-confidence? edi-change) gates low-trust events. Recall is 1.0, giving headroom above the 0.8 business gate, so this should cut false arbitrations without recall penalties.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (high-confidence? edi-change)\\n       (not (frozen-horizon? edi-change))))\"}",
+ "finish": "stop",
+ "latency_s": 20.19,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 844,
+ "reasoning_tokens": 681,
+ "prompt_sha": "f2b91240caf979d7",
+ "provider": "glm"
+}

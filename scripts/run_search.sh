@@ -8,8 +8,10 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 : "${AURA_BIN:?set AURA_BIN to an Aura build-rel/aura}"
 : "${AURA_STDLIB:?set AURA_STDLIB to an Aura checkout lib/ directory (contains std/pso.aura)}"
 MODULES="aura/data.aura aura/scenario.aura aura/runtime.aura aura/workspace.aura aura/agents.aura aura/supervisor.aura aura/evolve.aura aura/search.aura"
-mkdir -p "$REPO/build"; FILE="build/search.all.aura"
-( cd "$REPO"; for m in $MODULES; do cat "$m"; echo; done; cat aura/search-main.aura ) > "$REPO/$FILE"
+mkdir -p "$REPO/build"; FILE="build/${SCM_BUILD_NAME:-search}.all.aura"
+# SCM_EXTRA_MODULES (space-separated, e.g. "aura/llm-search.aura build/llm-proposals.aura") are appended
+# after the modules; SCM_MAIN replaces aura/search-main.aura (e.g. build/llm-main.aura).
+( cd "$REPO"; for m in $MODULES ${SCM_EXTRA_MODULES:-}; do cat "$m"; echo; done; cat "${SCM_MAIN:-aura/search-main.aura}" ) > "$REPO/$FILE"
 BIN_DIR="$(cd "$(dirname "$AURA_BIN")" && pwd)"; STD="$(cd "$AURA_STDLIB" && pwd)"
 envs=(-e AURA_SANDBOX=off -e AURA_PIPELINE_STRICT=0 -e AURA_PATH="$STD")
 # explicit K=V: `sudo docker` drops the caller's environment

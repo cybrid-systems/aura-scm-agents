@@ -1,0 +1,2246 @@
+{
+ "config": {
+  "models": [
+   "glm",
+   "minimax"
+  ],
+  "seeds": [
+   20261028,
+   20261029,
+   20261030
+  ],
+  "k": 4,
+  "n": 8,
+  "reps": 5,
+  "max_tokens": 8000,
+  "search": "seed=20261028 pso=16x10 aco=16x8 reps=5 noise=0.1",
+  "prices_usd_per_m": {
+   "glm": [
+    0.15,
+    0.5
+   ],
+   "minimax": [
+    0.15,
+    0.6
+   ],
+   "deepseek": [
+    0.0,
+    0.0
+   ],
+   "mock": [
+    0.0,
+    0.0
+   ]
+  }
+ },
+ "runs": {
+  "20261028": {
+   "rc": 0,
+   "wall_s": null,
+   "evals": "2252",
+   "flakes": "8",
+   "rejects": "parse=90 type=129 type-lint=57 runtime=0",
+   "swarm_fingerprint": "should-arbitrate?:273:1.0;claim-root-cause:427:2.0;expedite-response:1000:-1.01"
+  },
+  "20261029": {
+   "rc": 0,
+   "wall_s": null,
+   "evals": "2057",
+   "flakes": "8",
+   "rejects": "parse=77 type=129 type-lint=43 runtime=0",
+   "swarm_fingerprint": "should-arbitrate?:156:1.0;claim-root-cause:438:2.0;expedite-response:997:-1.01"
+  },
+  "20261030": {
+   "rc": 0,
+   "wall_s": null,
+   "evals": "2114",
+   "flakes": "11",
+   "rejects": "parse=85 type=129 type-lint=55 runtime=0",
+   "swarm_fingerprint": "should-arbitrate?:204:1.0;claim-root-cause:454:2.0;expedite-response:969:-1.01"
+  }
+ },
+ "arms": {
+  "v1|should-arbitrate?": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "1",
+     "train_fit": 0.286,
+     "holdout_fit": 0.295,
+     "train": [
+      28.0,
+      20.0,
+      0.714,
+      1.0
+     ],
+     "holdout": [
+      61.0,
+      43.0,
+      0.705,
+      1.0
+     ],
+     "gap": -0.009,
+     "evals": 215,
+     "rejects": 37,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.15) (> inventory-exposure 500000) (not (frozen-horizon? edi-change))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261029,
+     "id": "1",
+     "train_fit": 0.286,
+     "holdout_fit": 0.295,
+     "train": [
+      28.0,
+      20.0,
+      0.714,
+      1.0
+     ],
+     "holdout": [
+      61.0,
+      43.0,
+      0.705,
+      1.0
+     ],
+     "gap": -0.009,
+     "evals": 206,
+     "rejects": 36,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.15) (> inventory-exposure 500000) (not (frozen-horizon? edi-change))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261030,
+     "id": "1",
+     "train_fit": 0.286,
+     "holdout_fit": 0.295,
+     "train": [
+      28.0,
+      20.0,
+      0.714,
+      1.0
+     ],
+     "holdout": [
+      61.0,
+      43.0,
+      0.705,
+      1.0
+     ],
+     "gap": -0.009,
+     "evals": 206,
+     "rejects": 39,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.15) (> inventory-exposure 500000) (not (frozen-horizon? edi-change))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    }
+   ],
+   "holdout_mean": 0.295,
+   "holdout_sd": 0.0,
+   "train_mean": 0.286,
+   "gap_mean": -0.009,
+   "evals_mean": 209,
+   "reject_rate": 0.179
+  },
+  "v1|claim-root-cause": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "3",
+     "train_fit": 1.315,
+     "holdout_fit": 1.108,
+     "train": [
+      0.708,
+      23.0,
+      3161000.0,
+      0.607
+     ],
+     "holdout": [
+      0.615,
+      53.0,
+      4907000.0,
+      0.493
+     ],
+     "gap": 0.207,
+     "evals": 211,
+     "rejects": 19,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.1)) 'demand-forecast-error) (else 'unknown)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261029,
+     "id": "3",
+     "train_fit": 1.315,
+     "holdout_fit": 1.108,
+     "train": [
+      0.708,
+      23.0,
+      3161000.0,
+      0.607
+     ],
+     "holdout": [
+      0.615,
+      53.0,
+      4907000.0,
+      0.493
+     ],
+     "gap": 0.207,
+     "evals": 226,
+     "rejects": 24,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.1)) 'demand-forecast-error) (else 'unknown)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261030,
+     "id": "3",
+     "train_fit": 1.315,
+     "holdout_fit": 1.108,
+     "train": [
+      0.708,
+      23.0,
+      3161000.0,
+      0.607
+     ],
+     "holdout": [
+      0.615,
+      53.0,
+      4907000.0,
+      0.493
+     ],
+     "gap": 0.207,
+     "evals": 221,
+     "rejects": 20,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.1)) 'demand-forecast-error) (else 'unknown)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    }
+   ],
+   "holdout_mean": 1.108,
+   "holdout_sd": 0.0,
+   "train_mean": 1.315,
+   "gap_mean": 0.207,
+   "evals_mean": 219.3,
+   "reject_rate": 0.096
+  },
+  "v1|expedite-response": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "5",
+     "train_fit": -2.565,
+     "holdout_fit": -1.8825,
+     "train": [
+      1.0,
+      34.0,
+      0.0,
+      4.0,
+      2165000.0,
+      40.0
+     ],
+     "holdout": [
+      5.0,
+      52.0,
+      0.0,
+      5.0,
+      3265000.0,
+      80.0
+     ],
+     "gap": -0.6825,
+     "evals": 218,
+     "rejects": 36,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 5.0)) (list 'alert-planner 'immediate-expedite-review)) ((>= (risk-rank risk-level) (risk-rank 'medium)) (list 'suggest-alternative-supplier)) (else (list 'monitor))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261029,
+     "id": "5",
+     "train_fit": -2.565,
+     "holdout_fit": -1.8825,
+     "train": [
+      1.0,
+      34.0,
+      0.0,
+      4.0,
+      2165000.0,
+      40.0
+     ],
+     "holdout": [
+      5.0,
+      52.0,
+      0.0,
+      5.0,
+      3265000.0,
+      80.0
+     ],
+     "gap": -0.6825,
+     "evals": 218,
+     "rejects": 32,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 5.0)) (list 'alert-planner 'immediate-expedite-review)) ((>= (risk-rank risk-level) (risk-rank 'medium)) (list 'suggest-alternative-supplier)) (else (list 'monitor))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261030,
+     "id": "5",
+     "train_fit": -2.565,
+     "holdout_fit": -1.8825,
+     "train": [
+      1.0,
+      34.0,
+      0.0,
+      4.0,
+      2165000.0,
+      40.0
+     ],
+     "holdout": [
+      5.0,
+      52.0,
+      0.0,
+      5.0,
+      3265000.0,
+      80.0
+     ],
+     "gap": -0.6825,
+     "evals": 226,
+     "rejects": 31,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 5.0)) (list 'alert-planner 'immediate-expedite-review)) ((>= (risk-rank risk-level) (risk-rank 'medium)) (list 'suggest-alternative-supplier)) (else (list 'monitor))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    }
+   ],
+   "holdout_mean": -1.8825,
+   "holdout_sd": 0.0,
+   "train_mean": -2.565,
+   "gap_mean": -0.6825,
+   "evals_mean": 220.7,
+   "reject_rate": 0.15
+  },
+  "v2|should-arbitrate?": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "2",
+     "train_fit": 0.875,
+     "holdout_fit": 0.889,
+     "train": [
+      7.0,
+      0.0,
+      0.0,
+      0.875
+     ],
+     "holdout": [
+      16.0,
+      0.0,
+      0.0,
+      0.889
+     ],
+     "gap": -0.014,
+     "evals": 215,
+     "rejects": 37,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.22) (> inventory-exposure 800000) (not (frozen-horizon? edi-change)) (>= (hash-ref edi-change \"confidence\") 0.7)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261029,
+     "id": "2",
+     "train_fit": 0.875,
+     "holdout_fit": 0.889,
+     "train": [
+      7.0,
+      0.0,
+      0.0,
+      0.875
+     ],
+     "holdout": [
+      16.0,
+      0.0,
+      0.0,
+      0.889
+     ],
+     "gap": -0.014,
+     "evals": 206,
+     "rejects": 36,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.22) (> inventory-exposure 800000) (not (frozen-horizon? edi-change)) (>= (hash-ref edi-change \"confidence\") 0.7)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261030,
+     "id": "2",
+     "train_fit": 0.875,
+     "holdout_fit": 0.889,
+     "train": [
+      7.0,
+      0.0,
+      0.0,
+      0.875
+     ],
+     "holdout": [
+      16.0,
+      0.0,
+      0.0,
+      0.889
+     ],
+     "gap": -0.014,
+     "evals": 206,
+     "rejects": 39,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.22) (> inventory-exposure 800000) (not (frozen-horizon? edi-change)) (>= (hash-ref edi-change \"confidence\") 0.7)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    }
+   ],
+   "holdout_mean": 0.889,
+   "holdout_sd": 0.0,
+   "train_mean": 0.875,
+   "gap_mean": -0.014,
+   "evals_mean": 209,
+   "reject_rate": 0.179
+  },
+  "v2|claim-root-cause": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "4",
+     "train_fit": 2.0,
+     "holdout_fit": 2.0,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      1.0,
+      16.0,
+      9953000.0,
+      1.0
+     ],
+     "gap": 0.0,
+     "evals": 211,
+     "rejects": 19,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((or (forecast-bias? expedite-event) (market-signal-mismatch? expedite-event)) 'demand-forecast-error) (else 'unknown)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261029,
+     "id": "4",
+     "train_fit": 2.0,
+     "holdout_fit": 2.0,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      1.0,
+      16.0,
+      9953000.0,
+      1.0
+     ],
+     "gap": 0.0,
+     "evals": 226,
+     "rejects": 24,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((or (forecast-bias? expedite-event) (market-signal-mismatch? expedite-event)) 'demand-forecast-error) (else 'unknown)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261030,
+     "id": "4",
+     "train_fit": 2.0,
+     "holdout_fit": 2.0,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      1.0,
+      16.0,
+      9953000.0,
+      1.0
+     ],
+     "gap": 0.0,
+     "evals": 221,
+     "rejects": 20,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((or (forecast-bias? expedite-event) (market-signal-mismatch? expedite-event)) 'demand-forecast-error) (else 'unknown)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    }
+   ],
+   "holdout_mean": 2.0,
+   "holdout_sd": 0.0,
+   "train_mean": 2.0,
+   "gap_mean": 0.0,
+   "evals_mean": 219.3,
+   "reject_rate": 0.096
+  },
+  "v2|expedite-response": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "6",
+     "train_fit": -2.1005,
+     "holdout_fit": -1.838,
+     "train": [
+      1.0,
+      6.0,
+      34.0,
+      3.0,
+      1800500.0,
+      40.0
+     ],
+     "holdout": [
+      5.0,
+      10.0,
+      52.0,
+      3.0,
+      3376000.0,
+      80.0
+     ],
+     "gap": -0.2625,
+     "evals": 218,
+     "rejects": 36,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 5.0)) (list 'alert-planner 'immediate-expedite-review)) ((>= (risk-rank risk-level) (risk-rank 'medium)) (list 'propose-internal-rebalance)) (else (list 'monitor))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261029,
+     "id": "6",
+     "train_fit": -2.1005,
+     "holdout_fit": -1.838,
+     "train": [
+      1.0,
+      6.0,
+      34.0,
+      3.0,
+      1800500.0,
+      40.0
+     ],
+     "holdout": [
+      5.0,
+      10.0,
+      52.0,
+      3.0,
+      3376000.0,
+      80.0
+     ],
+     "gap": -0.2625,
+     "evals": 218,
+     "rejects": 32,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 5.0)) (list 'alert-planner 'immediate-expedite-review)) ((>= (risk-rank risk-level) (risk-rank 'medium)) (list 'propose-internal-rebalance)) (else (list 'monitor))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261030,
+     "id": "6",
+     "train_fit": -2.1005,
+     "holdout_fit": -1.838,
+     "train": [
+      1.0,
+      6.0,
+      34.0,
+      3.0,
+      1800500.0,
+      40.0
+     ],
+     "holdout": [
+      5.0,
+      10.0,
+      52.0,
+      3.0,
+      3376000.0,
+      80.0
+     ],
+     "gap": -0.2625,
+     "evals": 226,
+     "rejects": 31,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 5.0)) (list 'alert-planner 'immediate-expedite-review)) ((>= (risk-rank risk-level) (risk-rank 'medium)) (list 'propose-internal-rebalance)) (else (list 'monitor))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    }
+   ],
+   "holdout_mean": -1.838,
+   "holdout_sd": 0.0,
+   "train_mean": -2.1005,
+   "gap_mean": -0.2625,
+   "evals_mean": 220.7,
+   "reject_rate": 0.15
+  },
+  "swarm|should-arbitrate?": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "273",
+     "train_fit": 1.0,
+     "holdout_fit": 0.889,
+     "train": [
+      8.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "holdout": [
+      16.0,
+      0.0,
+      0.0,
+      0.889
+     ],
+     "gap": 0.111,
+     "evals": 215,
+     "rejects": 37,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.1955) (> inventory-exposure 820336) (not (frozen-horizon? edi-change)) (>= (hash-ref edi-change \"confidence\") 0.724)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261029,
+     "id": "156",
+     "train_fit": 1.0,
+     "holdout_fit": 0.889,
+     "train": [
+      8.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "holdout": [
+      16.0,
+      0.0,
+      0.0,
+      0.889
+     ],
+     "gap": 0.111,
+     "evals": 206,
+     "rejects": 36,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.2032) (> inventory-exposure 730833) (not (frozen-horizon? edi-change)) (>= (hash-ref edi-change \"confidence\") 0.7119)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261030,
+     "id": "204",
+     "train_fit": 1.0,
+     "holdout_fit": 0.889,
+     "train": [
+      8.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "holdout": [
+      16.0,
+      0.0,
+      0.0,
+      0.889
+     ],
+     "gap": 0.111,
+     "evals": 206,
+     "rejects": 39,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.2016) (> inventory-exposure 905765) (not (frozen-horizon? edi-change)) (>= (hash-ref edi-change \"confidence\") 0.701)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    }
+   ],
+   "holdout_mean": 0.889,
+   "holdout_sd": 0.0,
+   "train_mean": 1.0,
+   "gap_mean": 0.111,
+   "evals_mean": 209,
+   "reject_rate": 0.179
+  },
+  "swarm|claim-root-cause": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "427",
+     "train_fit": 2.0,
+     "holdout_fit": 2.0,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      1.0,
+      16.0,
+      9953000.0,
+      1.0
+     ],
+     "gap": 0.0,
+     "evals": 211,
+     "rejects": 19,
+     "src": "(define (claim-root-cause expedite-event) (cond ((supplier-lead-time-miss? expedite-event) 'supplier-delay) ((or (forecast-bias? expedite-event) (market-signal-mismatch? expedite-event)) 'demand-forecast-error) (else 'unknown)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261029,
+     "id": "438",
+     "train_fit": 2.0,
+     "holdout_fit": 2.0,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      1.0,
+      16.0,
+      9953000.0,
+      1.0
+     ],
+     "gap": 0.0,
+     "evals": 226,
+     "rejects": 24,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((or (forecast-bias? expedite-event) (market-signal-mismatch? expedite-event)) 'demand-forecast-error) (else 'unknown)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261030,
+     "id": "454",
+     "train_fit": 2.0,
+     "holdout_fit": 2.0,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      1.0,
+      16.0,
+      9953000.0,
+      1.0
+     ],
+     "gap": 0.0,
+     "evals": 221,
+     "rejects": 20,
+     "src": "(define (claim-root-cause expedite-event) (cond ((supplier-lead-time-miss? expedite-event) 'supplier-delay) ((or (forecast-bias? expedite-event) (market-signal-mismatch? expedite-event)) 'demand-forecast-error) (else 'unknown)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    }
+   ],
+   "holdout_mean": 2.0,
+   "holdout_sd": 0.0,
+   "train_mean": 2.0,
+   "gap_mean": 0.0,
+   "evals_mean": 219.3,
+   "reject_rate": 0.096
+  },
+  "swarm|expedite-response": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "1000",
+     "train_fit": -1.01,
+     "holdout_fit": -1.293,
+     "train": [
+      22.0,
+      1.0,
+      13.0,
+      0.0,
+      1010000.0,
+      40.0
+     ],
+     "holdout": [
+      45.0,
+      2.0,
+      12.0,
+      3.0,
+      2286000.0,
+      80.0
+     ],
+     "gap": 0.283,
+     "evals": 218,
+     "rejects": 36,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 12.9128)) (list 'propose-internal-rebalance)) ((>= (risk-rank risk-level) (risk-rank 'medium)) (list 'alert-planner 'immediate-expedite-review)) (else (list 'monitor))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261029,
+     "id": "997",
+     "train_fit": -1.01,
+     "holdout_fit": -1.293,
+     "train": [
+      22.0,
+      1.0,
+      13.0,
+      0.0,
+      1010000.0,
+      40.0
+     ],
+     "holdout": [
+      45.0,
+      2.0,
+      12.0,
+      3.0,
+      2286000.0,
+      80.0
+     ],
+     "gap": 0.283,
+     "evals": 218,
+     "rejects": 32,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 12.9611)) (list 'propose-internal-rebalance)) ((>= (risk-rank risk-level) (risk-rank 'medium)) (list 'alert-planner 'immediate-expedite-review)) (else (list 'monitor))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261030,
+     "id": "969",
+     "train_fit": -1.01,
+     "holdout_fit": -1.293,
+     "train": [
+      22.0,
+      1.0,
+      13.0,
+      0.0,
+      1010000.0,
+      40.0
+     ],
+     "holdout": [
+      45.0,
+      2.0,
+      12.0,
+      3.0,
+      2286000.0,
+      80.0
+     ],
+     "gap": 0.283,
+     "evals": 226,
+     "rejects": 31,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 13.0522)) (list 'propose-internal-rebalance)) ((>= (risk-rank risk-level) (risk-rank 'medium)) (list 'alert-planner 'immediate-expedite-review)) (else (list 'monitor))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "",
+     "base_id": ""
+    }
+   ],
+   "holdout_mean": -1.293,
+   "holdout_sd": 0.0,
+   "train_mean": -1.01,
+   "gap_mean": 0.283,
+   "evals_mean": 220.7,
+   "reject_rate": 0.15
+  },
+  "llm:glm|should-arbitrate?": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "1255",
+     "train_fit": 0.5,
+     "holdout_fit": 0.75,
+     "train": [
+      16.0,
+      8.0,
+      0.5,
+      1.0
+     ],
+     "holdout": [
+      24.0,
+      6.0,
+      0.25,
+      1.0
+     ],
+     "gap": -0.25,
+     "evals": 4,
+     "rejects": 0,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (high-confidence? edi-change) (> (abs (change-pct edi-change)) 0.15) (> inventory-exposure 500000) (not (frozen-horizon? edi-change))))",
+     "reason": "v1's 20 false arbitrations (rate 0.714) are mostly low-confidence events (0.44-0.67). Adding (high-confidence? edi-change) gates on confidence >= 0.7, suppressing those rows; recall should hold at 1.0 since every costly row was a false positive, not a miss, and exposure/pct/frozen guards stay unchanged.",
+     "gate_pass": "4",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261029,
+     "id": "1255",
+     "train_fit": 0.5,
+     "holdout_fit": 0.75,
+     "train": [
+      16.0,
+      8.0,
+      0.5,
+      1.0
+     ],
+     "holdout": [
+      24.0,
+      6.0,
+      0.25,
+      1.0
+     ],
+     "gap": -0.25,
+     "evals": 4,
+     "rejects": 0,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.15) (> inventory-exposure 500000) (not (frozen-horizon? edi-change)) (high-confidence? edi-change)))",
+     "reason": "6 of 8 failure rows have confidence below 0.7 (0.44, 0.60, 0.61, 0.66, 0.67, 0.67) yet were arbitrated; adding (high-confidence? edi-change) gates out these low-trust events. Confident true positives keep recall at/above 0.8 while cutting the 0.714 false-arbitration-rate; existing pct/exposure/frozen thresholds stay unchanged.",
+     "gate_pass": "4",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261030,
+     "id": "1255",
+     "train_fit": 0.5,
+     "holdout_fit": 0.75,
+     "train": [
+      16.0,
+      8.0,
+      0.5,
+      1.0
+     ],
+     "holdout": [
+      24.0,
+      6.0,
+      0.25,
+      1.0
+     ],
+     "gap": -0.25,
+     "evals": 4,
+     "rejects": 0,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.15) (> inventory-exposure 500000) (not (frozen-horizon? edi-change)) (high-confidence? edi-change)))",
+     "reason": "Added (high-confidence? edi-change) to the conjunction. 6 of 8 false-arbitration rows (e.g. pct=-0.428 conf=0.66; pct=0.224 conf=0.44; pct=-0.178 conf=0.61) fall below the 0.7 confidence threshold, so this gate directly attacks the 0.714 false-arbitration-rate while keeping pct>0.15/exposure>500000 unchanged to preserve recall >= 0.8.",
+     "gate_pass": "4",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    }
+   ],
+   "holdout_mean": 0.75,
+   "holdout_sd": 0.0,
+   "train_mean": 0.5,
+   "gap_mean": -0.25,
+   "evals_mean": 4,
+   "reject_rate": 0.0
+  },
+  "llm:glm|claim-root-cause": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "1676",
+     "train_fit": 2.0,
+     "holdout_fit": 1.896,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      0.958,
+      20.0,
+      9340000.0,
+      0.938
+     ],
+     "gap": 0.104,
+     "evals": 4,
+     "rejects": 0,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((or (market-signal-mismatch? expedite-event) (and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.06))) 'demand-forecast-error) (else 'unknown)))",
+     "reason": "All 8 shown failures are demand-forecast-error labeled 'unknown': market-mismatch=#t rows have no forecast-bias, and bias rows (0.065-0.081) fall under the 0.1 cutoff. Broadening the forecast branch to fire on market-signal-mismatch and lowering the bias threshold to 0.06 covers them (~1.33M) without touching the supplier-delay rules.",
+     "gate_pass": "4",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261029,
+     "id": "1676",
+     "train_fit": 2.0,
+     "holdout_fit": 1.896,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      0.958,
+      20.0,
+      9340000.0,
+      0.938
+     ],
+     "gap": 0.104,
+     "evals": 4,
+     "rejects": 1,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.06)) 'demand-forecast-error) ((market-signal-mismatch? expedite-event) 'demand-forecast-error) (else 'unknown)))",
+     "reason": "8 misclassified demand-forecast-error rows split into two patterns: market-mismatch=#t alone, and forecast-bias with bias-amount 0.065–0.081 falling under the 0.1 cutoff. Added a market-signal-mismatch branch returning 'demand-forecast-error (structural edit) and lowered the bias threshold to 0.06, converting 23 unknowns without touching supplier-delay logic.",
+     "gate_pass": "3",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261030,
+     "id": "1677",
+     "train_fit": 2.0,
+     "holdout_fit": 1.896,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      0.958,
+      20.0,
+      9340000.0,
+      0.938
+     ],
+     "gap": 0.104,
+     "evals": 4,
+     "rejects": 1,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((or (and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.06)) (market-signal-mismatch? expedite-event)) 'demand-forecast-error) (else 'unknown)))",
+     "reason": "8 failure rows (amounts 45k-254k) had market-mismatch=#t, truth=demand-forecast-error, v1=unknown; 3 more had bias-amount 0.065-0.081 just under the 0.1 gate. Extended the forecast branch with market-signal-mismatch? and lowered the bias threshold to 0.06, converting unknowns into recovered demand-forecast-error claims.",
+     "gate_pass": "3",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    }
+   ],
+   "holdout_mean": 1.896,
+   "holdout_sd": 0.0,
+   "train_mean": 2.0,
+   "gap_mean": 0.104,
+   "evals_mean": 4,
+   "reject_rate": 0.167
+  },
+  "llm:glm|expedite-response": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "2099",
+     "train_fit": -0.37,
+     "holdout_fit": -0.7725,
+     "train": [
+      8.0,
+      1.0,
+      5.0,
+      0.0,
+      370000.0,
+      40.0
+     ],
+     "holdout": [
+      12.0,
+      4.0,
+      13.0,
+      3.0,
+      1245000.0,
+      80.0
+     ],
+     "gap": 0.4025,
+     "evals": 4,
+     "rejects": 0,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'medium)) (< inventory-days 6)) (list 'alert-planner 'immediate-expedite-review)) ((and (>= (risk-rank risk-level) (risk-rank 'medium)) (< inventory-days 9)) (list 'propose-internal-rebalance)) (else (list 'monitor))))",
+     "reason": "All 4 stockouts were medium-level with tiny inventory (2.8, 5.3d): alerting medium below 6 days fixes these (35000 vs 195000). Costly rows at 10-13.2d had regular-lead 4-8 covering demand, so >=9d goes to monitor (0 vs 45000, e.g. the 11.5/12.4/13.2 rows). A 6-9d rebalance branch cuts 45000 switches to 6000.",
+     "gate_pass": "4",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261029,
+     "id": "2097",
+     "train_fit": -0.595,
+     "holdout_fit": -0.88,
+     "train": [
+      17.0,
+      0.0,
+      0.0,
+      0.0,
+      595000.0,
+      40.0
+     ],
+     "holdout": [
+      36.0,
+      0.0,
+      0.0,
+      2.0,
+      1560000.0,
+      80.0
+     ],
+     "gap": 0.285,
+     "evals": 4,
+     "rejects": 0,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (< inventory-days 10) (>= (risk-rank risk-level) (risk-rank 'medium))) (list 'alert-planner 'immediate-expedite-review)) (else (list 'monitor))))",
+     "reason": "The medium/high branch always paid 45k for supplier-switches: wasted when inventory>=10 (rows 10.0, 11.5, 12.4, 13.2: regular lead 4-8 arrives first) and still 195k+stockout when tight (2.8, 5.3). Expedite (35k) always arrives on time and strictly dominates the 45k supplier, so medium/high with inventory-days<10 now expedites; roomy inventory monitors.",
+     "gate_pass": "4",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261030,
+     "id": "2099",
+     "train_fit": -0.385,
+     "holdout_fit": -0.6175,
+     "train": [
+      11.0,
+      0.0,
+      0.0,
+      0.0,
+      385000.0,
+      40.0
+     ],
+     "holdout": [
+      21.0,
+      0.0,
+      0.0,
+      2.0,
+      1035000.0,
+      80.0
+     ],
+     "gap": 0.2325,
+     "evals": 4,
+     "rejects": 0,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'medium)) (< inventory-days 8)) (list 'alert-planner 'immediate-expedite-review)) (else (list 'monitor))))",
+     "reason": "v1's 4 stockouts (195000 rows, e.g. inv 2.8/5.3) all came from late alternative suppliers, and at 45000 the switch is dominated by alert-planner (35000, always on time). One edit: replace the suggest-alternative branch with monitor and widen the alert branch to medium risk with inventory-days < 8 (max observed regular-lead), so high inventory monitors safely. Cost and stockouts both fall, meeting ",
+     "gate_pass": "4",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    }
+   ],
+   "holdout_mean": -0.7567,
+   "holdout_sd": 0.1077,
+   "train_mean": -0.45,
+   "gap_mean": 0.3067,
+   "evals_mean": 4,
+   "reject_rate": 0.0
+  },
+  "llm+swarm:glm|should-arbitrate?": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "1470",
+     "train_fit": 0.889,
+     "holdout_fit": 0.9,
+     "train": [
+      9.0,
+      1.0,
+      0.111,
+      1.0
+     ],
+     "holdout": [
+      20.0,
+      2.0,
+      0.1,
+      1.0
+     ],
+     "gap": -0.011,
+     "evals": 202,
+     "rejects": 26,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (high-confidence? edi-change) (> (abs (change-pct edi-change)) 0.1558) (> inventory-exposure 717145) (not (frozen-horizon? edi-change))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "1260-1675",
+     "base_id": "1259"
+    },
+    {
+     "seed": 20261029,
+     "id": "1407",
+     "train_fit": 1.0,
+     "holdout_fit": 1.0,
+     "train": [
+      8.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "holdout": [
+      18.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "gap": 0.0,
+     "evals": 192,
+     "rejects": 25,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.2017) (> inventory-exposure 868925) (not (frozen-horizon? edi-change)) (high-confidence? edi-change)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "1260-1675",
+     "base_id": "1259"
+    },
+    {
+     "seed": 20261030,
+     "id": "1439",
+     "train_fit": 1.0,
+     "holdout_fit": 1.0,
+     "train": [
+      8.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "holdout": [
+      18.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "gap": 0.0,
+     "evals": 198,
+     "rejects": 34,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.1998) (> inventory-exposure 867431) (not (frozen-horizon? edi-change)) (high-confidence? edi-change)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "1260-1675",
+     "base_id": "1259"
+    }
+   ],
+   "holdout_mean": 0.9667,
+   "holdout_sd": 0.0471,
+   "train_mean": 0.963,
+   "gap_mean": -0.0037,
+   "evals_mean": 197.3,
+   "reject_rate": 0.144
+  },
+  "llm+swarm:glm|claim-root-cause": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "1680",
+     "train_fit": 2.0,
+     "holdout_fit": 1.896,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      0.958,
+      20.0,
+      9340000.0,
+      0.938
+     ],
+     "gap": 0.104,
+     "evals": 304,
+     "rejects": 32,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) (quote supplier-delay)) ((or (market-signal-mismatch? expedite-event) (and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.06))) (quote demand-forecast-error)) (else (quote unknown))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "1681-2096",
+     "base_id": "1680"
+    },
+    {
+     "seed": 20261029,
+     "id": "1680",
+     "train_fit": 2.0,
+     "holdout_fit": 1.896,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      0.958,
+      20.0,
+      9340000.0,
+      0.938
+     ],
+     "gap": 0.104,
+     "evals": 333,
+     "rejects": 22,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) (quote supplier-delay)) ((and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.06)) (quote demand-forecast-error)) ((market-signal-mismatch? expedite-event) (quote demand-forecast-error)) (else (quote unknown))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "1681-2096",
+     "base_id": "1680"
+    },
+    {
+     "seed": 20261030,
+     "id": "1680",
+     "train_fit": 2.0,
+     "holdout_fit": 1.896,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      0.958,
+      20.0,
+      9340000.0,
+      0.938
+     ],
+     "gap": 0.104,
+     "evals": 302,
+     "rejects": 26,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) (quote supplier-delay)) ((or (and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.06)) (market-signal-mismatch? expedite-event)) (quote demand-forecast-error)) (else (quote unknown))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "1681-2096",
+     "base_id": "1680"
+    }
+   ],
+   "holdout_mean": 1.896,
+   "holdout_sd": 0.0,
+   "train_mean": 2.0,
+   "gap_mean": 0.104,
+   "evals_mean": 313,
+   "reject_rate": 0.085
+  },
+  "llm+swarm:glm|expedite-response": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "2296",
+     "train_fit": -0.3385,
+     "holdout_fit": -0.6465,
+     "train": [
+      8.0,
+      1.0,
+      2.0,
+      0.0,
+      338500.0,
+      40.0
+     ],
+     "holdout": [
+      12.0,
+      2.0,
+      4.0,
+      3.0,
+      993000.0,
+      80.0
+     ],
+     "gap": 0.308,
+     "evals": 324,
+     "rejects": 37,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank (quote medium))) (< inventory-days 6)) (list (quote alert-planner) (quote immediate-expedite-review))) ((and (>= (risk-rank risk-level) (risk-rank (quote medium))) (< inventory-days 7)) (list (quote propose-internal-rebalance))) (else (list (quote monitor)))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "2102-2517",
+     "base_id": "2101"
+    },
+    {
+     "seed": 20261029,
+     "id": "2252",
+     "train_fit": -0.35,
+     "holdout_fit": -0.53,
+     "train": [
+      10.0,
+      0.0,
+      0.0,
+      0.0,
+      350000.0,
+      40.0
+     ],
+     "holdout": [
+      16.0,
+      0.0,
+      0.0,
+      2.0,
+      860000.0,
+      80.0
+     ],
+     "gap": 0.18,
+     "evals": 231,
+     "rejects": 24,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (< inventory-days 7) (>= (risk-rank risk-level) (risk-rank (quote medium)))) (list (quote alert-planner) (quote immediate-expedite-review))) (else (list (quote monitor)))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "2102-2517",
+     "base_id": "2101"
+    },
+    {
+     "seed": 20261030,
+     "id": "2252",
+     "train_fit": -0.35,
+     "holdout_fit": -0.53,
+     "train": [
+      10.0,
+      0.0,
+      0.0,
+      0.0,
+      350000.0,
+      40.0
+     ],
+     "holdout": [
+      16.0,
+      0.0,
+      0.0,
+      2.0,
+      860000.0,
+      80.0
+     ],
+     "gap": 0.18,
+     "evals": 243,
+     "rejects": 29,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank (quote medium))) (< inventory-days 7)) (list (quote alert-planner) (quote immediate-expedite-review))) (else (list (quote monitor)))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "2102-2517",
+     "base_id": "2101"
+    }
+   ],
+   "holdout_mean": -0.5688,
+   "holdout_sd": 0.0549,
+   "train_mean": -0.3462,
+   "gap_mean": 0.2227,
+   "evals_mean": 266,
+   "reject_rate": 0.113
+  },
+  "llm:minimax|should-arbitrate?": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "2520",
+     "train_fit": 0.875,
+     "holdout_fit": 0.889,
+     "train": [
+      7.0,
+      0.0,
+      0.0,
+      0.875
+     ],
+     "holdout": [
+      16.0,
+      0.0,
+      0.0,
+      0.889
+     ],
+     "gap": -0.014,
+     "evals": 4,
+     "rejects": 0,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.2) (> inventory-exposure 1000000) (high-confidence? edi-change) (not (frozen-horizon? edi-change))))",
+     "reason": "Add the missing high-confidence condition and tighten materiality/exposure to 0.2 and 1,000,000. This excludes low-confidence false positives (0.60–0.67), the 0.194/680,000 case, and the -0.428/690,000/0.91 case, reducing v1’s 71.4% false-arbitration rate while targeting recall ≥0.8.",
+     "gate_pass": "4",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261029,
+     "id": "2521",
+     "train_fit": 0.727,
+     "holdout_fit": 0.9,
+     "train": [
+      11.0,
+      3.0,
+      0.273,
+      1.0
+     ],
+     "holdout": [
+      20.0,
+      2.0,
+      0.1,
+      1.0
+     ],
+     "gap": -0.173,
+     "evals": 4,
+     "rejects": 0,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.15) (> inventory-exposure 700000) (high-confidence? edi-change) (not (frozen-horizon? edi-change))))",
+     "reason": "Add a confidence gate and raise the exposure floor to 700000. The 20 false arbitrations (rate 0.714) include low-confidence rows (conf 0.44-0.67, e.g. pct=-0.428/exposure=1300000/conf=0.66) plus high-confidence rows at exposure 680000 and 690000. Requiring high-confidence? and exposure>700000 should remove those while keeping all 8 needed cases (recall 1.0, gate 0.8).",
+     "gate_pass": "4",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261030,
+     "id": "2518",
+     "train_fit": 0.5,
+     "holdout_fit": 0.75,
+     "train": [
+      16.0,
+      8.0,
+      0.5,
+      1.0
+     ],
+     "holdout": [
+      24.0,
+      6.0,
+      0.25,
+      1.0
+     ],
+     "gap": -0.25,
+     "evals": 4,
+     "rejects": 0,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.15) (> inventory-exposure 500000) (not (frozen-horizon? edi-change)) (high-confidence? edi-change)))",
+     "reason": "Add a high-confidence gate. Six of eight listed false arbitrations have confidence below 0.70, so this removes those rows while preserving magnitude, exposure, and frozen-horizon checks. V1 has FAR 0.714 and fitness 0.286; the edit targets false positives while protecting recall≥0.8. Two listed false positives at 0.83 and 0.91 remain.",
+     "gate_pass": "4",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    }
+   ],
+   "holdout_mean": 0.8463,
+   "holdout_sd": 0.0683,
+   "train_mean": 0.7007,
+   "gap_mean": -0.1457,
+   "evals_mean": 4,
+   "reject_rate": 0.0
+  },
+  "llm:minimax|claim-root-cause": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "2939",
+     "train_fit": 2.0,
+     "holdout_fit": 1.927,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      0.969,
+      19.0,
+      9539000.0,
+      0.958
+     ],
+     "gap": 0.073,
+     "evals": 4,
+     "rejects": 0,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((or (market-signal-mismatch? expedite-event) (and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.05))) 'demand-forecast-error) (else 'unknown)))",
+     "reason": "v1’s accuracy is 0.708 with 23 unknowns and 3,161,000 recovered. The shown demand-forecast-error failures have either market-mismatch=true or bias amounts 0.065–0.081, below the 0.1 cutoff. Broaden that branch to market mismatch OR bias >0.05, preserving supplier-delay precedence and targeting accuracy and recovery.",
+     "gate_pass": "4",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261029,
+     "id": "2939",
+     "train_fit": 2.0,
+     "holdout_fit": 1.927,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      0.969,
+      19.0,
+      9539000.0,
+      0.958
+     ],
+     "gap": 0.073,
+     "evals": 4,
+     "rejects": 0,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((or (and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.05)) (market-signal-mismatch? expedite-event)) 'demand-forecast-error) (else 'unknown)))",
+     "reason": "Broaden the demand-forecast branch to accept market-signal mismatches and lower the bias cutoff from 0.1 to 0.05. This fixes all eight shown false-unknown rows (five mismatches; biases 0.065/0.067/0.081), totaling $1.33M, supporting accuracy above 0.708 and recovered amount above $3.161M; supplier-delay handling is unchanged.",
+     "gate_pass": "4",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261030,
+     "id": "2939",
+     "train_fit": 2.0,
+     "holdout_fit": 1.927,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      0.969,
+      19.0,
+      9539000.0,
+      0.958
+     ],
+     "gap": 0.073,
+     "evals": 4,
+     "rejects": 0,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((or (and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.05)) (market-signal-mismatch? expedite-event)) 'demand-forecast-error) (else 'unknown)))",
+     "reason": "Broaden the demand-forecast-error branch to accept market-signal-mismatch? and lower the bias cutoff from 0.1 to 0.05. All eight cited misses have mismatch or bias 0.065–0.081 but truth demand-forecast-error, directly addressing accuracy 0.708 and unknown=23 while leaving supplier classification unchanged to protect recovered amount.",
+     "gate_pass": "4",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    }
+   ],
+   "holdout_mean": 1.927,
+   "holdout_sd": 0.0,
+   "train_mean": 2.0,
+   "gap_mean": 0.073,
+   "evals_mean": 4,
+   "reject_rate": 0.0
+  },
+  "llm:minimax|expedite-response": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "3361",
+     "train_fit": -1.225,
+     "holdout_fit": -1.2475,
+     "train": [
+      35.0,
+      0.0,
+      0.0,
+      0.0,
+      1225000.0,
+      40.0
+     ],
+     "holdout": [
+      57.0,
+      0.0,
+      0.0,
+      2.0,
+      2295000.0,
+      80.0
+     ],
+     "gap": 0.0225,
+     "evals": 4,
+     "rejects": 0,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 5)) (list 'alert-planner 'immediate-expedite-review)) ((>= (risk-rank risk-level) (risk-rank 'medium)) (list 'alert-planner 'immediate-expedite-review)) (else (list 'monitor))))",
+     "reason": "Change the medium/high supplier-switch branch to alert-planner. V1’s 34 switches cost 1.53M; routing all 35 non-low events to premium freight costs 1.225M and guarantees timely arrival, eliminating four stockouts, including the medium 5.3- and 2.8-day failure rows. Cost falls from 2.165M to 1.225M, stockouts fall from 4 to 0, and fitness improves from -2.565 to -1.225.",
+     "gate_pass": "4",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261029,
+     "id": "3362",
+     "train_fit": -0.385,
+     "holdout_fit": -0.6175,
+     "train": [
+      11.0,
+      0.0,
+      0.0,
+      0.0,
+      385000.0,
+      40.0
+     ],
+     "holdout": [
+      21.0,
+      0.0,
+      0.0,
+      2.0,
+      1035000.0,
+      80.0
+     ],
+     "gap": 0.2325,
+     "evals": 4,
+     "rejects": 0,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'medium)) (< inventory-days 8)) (list 'alert-planner 'immediate-expedite-review)) (else (list 'monitor))))",
+     "reason": "Replace the medium/high supplier-switch branch with alert-planner (35k, always in time) when inventory-days < 8, else monitor (free; regular lead ≤ 8 days). v1's 34 switches cost 1.53M and 4 stockouts (medium 5.3d with alt-lead 7; medium 2.8d with alt-lead 4); ample rows (11.5d, 12.4d, 13.2d) need no switch.",
+     "gate_pass": "4",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    },
+    {
+     "seed": 20261030,
+     "id": "3360",
+     "train_fit": -1.225,
+     "holdout_fit": -1.2475,
+     "train": [
+      35.0,
+      0.0,
+      0.0,
+      0.0,
+      1225000.0,
+      40.0
+     ],
+     "holdout": [
+      57.0,
+      0.0,
+      0.0,
+      2.0,
+      2295000.0,
+      80.0
+     ],
+     "gap": 0.0225,
+     "evals": 4,
+     "rejects": 0,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 5)) (list 'alert-planner 'immediate-expedite-review)) ((>= (risk-rank risk-level) (risk-rank 'medium)) (list 'alert-planner 'immediate-expedite-review)) (else (list 'monitor))))",
+     "reason": "Change the medium/high fallback from suggest-alternative-supplier to alert-planner/immediate-expedite-review. It covers the medium 2.8-day and 5.3-day failure rows while replacing 34 costly $45,000 switches with $35,000 always-on-time alerts. Response cost falls from $1,565,000 to $1,225,000, and stockouts should fall from 4 to zero, improving fitness from -2.565 to about -1.225.",
+     "gate_pass": "4",
+     "proposals": "4",
+     "attempts": "",
+     "base_id": ""
+    }
+   ],
+   "holdout_mean": -1.0375,
+   "holdout_sd": 0.297,
+   "train_mean": -0.945,
+   "gap_mean": 0.0925,
+   "evals_mean": 4,
+   "reject_rate": 0.0
+  },
+  "llm+swarm:minimax|should-arbitrate?": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "2720",
+     "train_fit": 1.0,
+     "holdout_fit": 1.0,
+     "train": [
+      8.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "holdout": [
+      18.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "gap": 0.0,
+     "evals": 205,
+     "rejects": 31,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.1978) (> inventory-exposure 770267) (high-confidence? edi-change) (not (frozen-horizon? edi-change))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "2523-2938",
+     "base_id": "2522"
+    },
+    {
+     "seed": 20261029,
+     "id": "2733",
+     "train_fit": 1.0,
+     "holdout_fit": 1.0,
+     "train": [
+      8.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "holdout": [
+      18.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "gap": 0.0,
+     "evals": 196,
+     "rejects": 33,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.2027) (> inventory-exposure 786602) (high-confidence? edi-change) (not (frozen-horizon? edi-change))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "2523-2938",
+     "base_id": "2522"
+    },
+    {
+     "seed": 20261030,
+     "id": "2709",
+     "train_fit": 1.0,
+     "holdout_fit": 1.0,
+     "train": [
+      8.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "holdout": [
+      18.0,
+      0.0,
+      0.0,
+      1.0
+     ],
+     "gap": 0.0,
+     "evals": 187,
+     "rejects": 30,
+     "src": "(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.2021) (> inventory-exposure 762817) (not (frozen-horizon? edi-change)) (high-confidence? edi-change)))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "2523-2938",
+     "base_id": "2522"
+    }
+   ],
+   "holdout_mean": 1.0,
+   "holdout_sd": 0.0,
+   "train_mean": 1.0,
+   "gap_mean": 0.0,
+   "evals_mean": 196,
+   "reject_rate": 0.16
+  },
+  "llm+swarm:minimax|claim-root-cause": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "2943",
+     "train_fit": 2.0,
+     "holdout_fit": 1.927,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      0.969,
+      19.0,
+      9539000.0,
+      0.958
+     ],
+     "gap": 0.073,
+     "evals": 264,
+     "rejects": 24,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) (quote supplier-delay)) ((or (market-signal-mismatch? expedite-event) (and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.05))) (quote demand-forecast-error)) (else (quote unknown))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "2944-3359",
+     "base_id": "2943"
+    },
+    {
+     "seed": 20261029,
+     "id": "2943",
+     "train_fit": 2.0,
+     "holdout_fit": 1.927,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      0.969,
+      19.0,
+      9539000.0,
+      0.958
+     ],
+     "gap": 0.073,
+     "evals": 247,
+     "rejects": 24,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) (quote supplier-delay)) ((or (and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.05)) (market-signal-mismatch? expedite-event)) (quote demand-forecast-error)) (else (quote unknown))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "2944-3359",
+     "base_id": "2943"
+    },
+    {
+     "seed": 20261030,
+     "id": "2943",
+     "train_fit": 2.0,
+     "holdout_fit": 1.927,
+     "train": [
+      1.0,
+      9.0,
+      5210000.0,
+      1.0
+     ],
+     "holdout": [
+      0.969,
+      19.0,
+      9539000.0,
+      0.958
+     ],
+     "gap": 0.073,
+     "evals": 229,
+     "rejects": 31,
+     "src": "(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) (quote supplier-delay)) ((or (and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.05)) (market-signal-mismatch? expedite-event)) (quote demand-forecast-error)) (else (quote unknown))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "2944-3359",
+     "base_id": "2943"
+    }
+   ],
+   "holdout_mean": 1.927,
+   "holdout_sd": 0.0,
+   "train_mean": 2.0,
+   "gap_mean": 0.073,
+   "evals_mean": 246.7,
+   "reject_rate": 0.107
+  },
+  "llm+swarm:minimax|expedite-response": {
+   "per_seed": [
+    {
+     "seed": 20261028,
+     "id": "3670",
+     "train_fit": -0.88,
+     "holdout_fit": -1.6625,
+     "train": [
+      18.0,
+      0.0,
+      0.0,
+      1.0,
+      780000.0,
+      40.0
+     ],
+     "holdout": [
+      45.0,
+      0.0,
+      0.0,
+      7.0,
+      2625000.0,
+      80.0
+     ],
+     "gap": 0.7825,
+     "evals": 285,
+     "rejects": 34,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank (quote high)))) (list (quote monitor))) ((>= (risk-rank risk-level) (risk-rank (quote medium))) (list (quote alert-planner) (quote immediate-expedite-review))) (else (list (quote monitor)))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "3365-3780",
+     "base_id": "3364"
+    },
+    {
+     "seed": 20261029,
+     "id": "3497",
+     "train_fit": -0.35,
+     "holdout_fit": -0.53,
+     "train": [
+      10.0,
+      0.0,
+      0.0,
+      0.0,
+      350000.0,
+      40.0
+     ],
+     "holdout": [
+      16.0,
+      0.0,
+      0.0,
+      2.0,
+      860000.0,
+      80.0
+     ],
+     "gap": 0.18,
+     "evals": 184,
+     "rejects": 28,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank (quote medium))) (< inventory-days 7)) (list (quote alert-planner) (quote immediate-expedite-review))) (else (list (quote monitor)))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "3365-3780",
+     "base_id": "3364"
+    },
+    {
+     "seed": 20261030,
+     "id": "3487",
+     "train_fit": -0.88,
+     "holdout_fit": -1.6625,
+     "train": [
+      18.0,
+      0.0,
+      0.0,
+      1.0,
+      780000.0,
+      40.0
+     ],
+     "holdout": [
+      45.0,
+      0.0,
+      0.0,
+      7.0,
+      2625000.0,
+      80.0
+     ],
+     "gap": 0.7825,
+     "evals": 278,
+     "rejects": 28,
+     "src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank (quote high)))) (list (quote monitor))) ((>= (risk-rank risk-level) (risk-rank (quote medium))) (list (quote alert-planner) (quote immediate-expedite-review))) (else (list (quote monitor)))))",
+     "reason": "",
+     "gate_pass": null,
+     "proposals": null,
+     "attempts": "3365-3780",
+     "base_id": "3364"
+    }
+   ],
+   "holdout_mean": -1.285,
+   "holdout_sd": 0.5339,
+   "train_mean": -0.7033,
+   "gap_mean": 0.5817,
+   "evals_mean": 249,
+   "reject_rate": 0.12
+  }
+ },
+ "models": {
+  "glm": {
+   "model_id": [
+    "glm-5.3-flash"
+   ],
+   "calls": 36,
+   "calls_live": 17,
+   "retries": 0,
+   "status": {
+    "valid": 35,
+    "api-error": 1
+   },
+   "valid_rate": 0.972,
+   "gate_pass": 34,
+   "gate_total": 36,
+   "gate_pass_rate": 0.944,
+   "prompt_tokens": 38480,
+   "completion_tokens": 92570,
+   "reasoning_tokens": 85819,
+   "latency_mean_s": 71.32,
+   "latency_p50_s": 35.29,
+   "latency_max_s": 191.38,
+   "usd_list_price": 0.05206,
+   "accepted": {
+    "llm": 9,
+    "llm+swarm": 9
+   },
+   "accepted_holdout_better": {
+    "llm": 9,
+    "llm+swarm": 9
+   },
+   "evals": {
+    "llm": 36,
+    "llm+swarm": 2329
+   },
+   "usd_per_accepted": {
+    "llm": 0.00578,
+    "llm+swarm": 0.00578
+   },
+   "tokens_per_accepted": {
+    "llm": 14561,
+    "llm+swarm": 14561
+   },
+   "evals_per_accepted": {
+    "llm": 4.0,
+    "llm+swarm": 258.8
+   },
+   "example_reasons": {
+    "should-arbitrate?": "v1's 20 false arbitrations (rate 0.714) are mostly low-confidence events (0.44-0.67). Adding (high-confidence? edi-change) gates on confidence >= 0.7, suppressing those rows; recall should hold at 1.0 since every costly row was a false positive, not a miss, and exposure/pct/frozen guards stay unchanged.",
+    "claim-root-cause": "All 8 shown failures are demand-forecast-error labeled 'unknown': market-mismatch=#t rows have no forecast-bias, and bias rows (0.065-0.081) fall under the 0.1 cutoff. Broadening the forecast branch to fire on market-signal-mismatch and lowering the bias threshold to 0.06 covers them (~1.33M) without touching the supplier-delay rules.",
+    "expedite-response": "All 34 alt-supplier rows cost 45000 though observed transfer-days are 2-4 and sister stock is usually present; rows like high/10.0 or high/13.2 would be fine with propose-internal-rebalance at 6000. I route medium/high with inventory-days>=5 to rebalance (fallback still times like alt), keeping the high/<5 alert and alt for tighter stock, so stockouts stay flat while cost drops."
+   }
+  },
+  "minimax": {
+   "model_id": [
+    "MiniMax-M3.1-Flash"
+   ],
+   "calls": 36,
+   "calls_live": 1,
+   "retries": 7,
+   "status": {
+    "valid": 36
+   },
+   "valid_rate": 1.0,
+   "gate_pass": 36,
+   "gate_total": 36,
+   "gate_pass_rate": 1.0,
+   "prompt_tokens": 54329,
+   "completion_tokens": 221086,
+   "reasoning_tokens": 214814,
+   "latency_mean_s": 58.52,
+   "latency_p50_s": 39.4,
+   "latency_max_s": 198.1,
+   "usd_list_price": 0.1408,
+   "accepted": {
+    "llm": 9,
+    "llm+swarm": 9
+   },
+   "accepted_holdout_better": {
+    "llm": 9,
+    "llm+swarm": 9
+   },
+   "evals": {
+    "llm": 36,
+    "llm+swarm": 2075
+   },
+   "usd_per_accepted": {
+    "llm": 0.01564,
+    "llm+swarm": 0.01564
+   },
+   "tokens_per_accepted": {
+    "llm": 30602,
+    "llm+swarm": 30602
+   },
+   "evals_per_accepted": {
+    "llm": 4.0,
+    "llm+swarm": 230.6
+   },
+   "example_reasons": {
+    "should-arbitrate?": "Add the supplied high-confidence gate to the existing conditions. V1 makes 20 false arbitrations among 28 decisions (71.4%) while recall is 1.0; six of eight listed false positives have confidence below 0.7 and would be suppressed, sharply lowering false-arbitration rate while preserving the 0.8 recall requirement.",
+    "claim-root-cause": "v1’s accuracy is 0.708 with 23 unknowns and 3,161,000 recovered. The shown demand-forecast-error failures have either market-mismatch=true or bias amounts 0.065–0.081, below the 0.1 cutoff. Broaden that branch to market mismatch OR bias >0.05, preserving supplier-delay precedence and targeting accuracy and recovery.",
+    "expedite-response": "Change the medium/high branch from alternative-supplier to internal-rebalance. V1's 34 switches cost 1,530,000 and accompany 4 stockouts (2,165,000 total). Rebalance costs 6,000 with sister stock and falls back otherwise; transfer is earlier in the medium/2.8 failure (3 versus 4 days), reducing cost without raising stockouts."
+   }
+  }
+ },
+ "commits": {
+  "llmcommit.snapshot": "0",
+  "llmcommit.trial.glm.should-arbitrate?.rebind": "ok",
+  "llmcommit.trial.glm.should-arbitrate?.gate": "pass",
+  "llmcommit.trial.glm.should-arbitrate?.before": "28;20;0.714;1.0",
+  "llmcommit.trial.glm.should-arbitrate?.after": "9;1;0.111;1.0",
+  "llmcommit.trial.glm.should-arbitrate?.fiber-metrics-equal": "#t",
+  "llmcommit.trial.glm.should-arbitrate?.best-id": "1470",
+  "llmcommit.trial.glm.should-arbitrate?.reason": "LLM glm: v1's 20 false arbitrations (rate 0.714) are mostly low-confidence events (0.44-0.67). Adding (high-confidence? edi-change) gates on confidence >= 0.7, suppressing those rows; recall should hold at 1.0 since every costly row was a false positive, not a miss, and exposure/pct/frozen guards stay unchanged. | swarm aco,pso,aco: llm-proposal #1255 -> base #1259 -> best #1470 (202 evals, train fit 0.889)",
+  "llmcommit.trial.glm.claim-root-cause.rebind": "ok",
+  "llmcommit.trial.glm.claim-root-cause.gate": "pass",
+  "llmcommit.trial.glm.claim-root-cause.before": "0.708;23;3161000;0.607",
+  "llmcommit.trial.glm.claim-root-cause.after": "1.0;9;5210000;1.0",
+  "llmcommit.trial.glm.claim-root-cause.fiber-metrics-equal": "#t",
+  "llmcommit.trial.glm.claim-root-cause.best-id": "1680",
+  "llmcommit.trial.glm.claim-root-cause.reason": "LLM glm: All 8 shown failures are demand-forecast-error labeled 'unknown': market-mismatch=#t rows have no forecast-bias, and bias rows (0.065-0.081) fall under the 0.1 cutoff. Broadening the forecast branch to fire on market-signal-mismatch and lowering the bias threshold to 0.06 covers them (~1.33M) without touching the supplier-delay rules. | swarm aco,pso,aco: llm-proposal #1676 -> base #1680 -> best #1680 (304 evals, train fit 2.0)",
+  "llmcommit.trial.glm.expedite-response.rebind": "ok",
+  "llmcommit.trial.glm.expedite-response.gate": "pass",
+  "llmcommit.trial.glm.expedite-response.before": "1;34;0;4;2165000;40",
+  "llmcommit.trial.glm.expedite-response.after": "8;1;2;0;338500;40",
+  "llmcommit.trial.glm.expedite-response.fiber-metrics-equal": "#t",
+  "llmcommit.trial.glm.expedite-response.best-id": "2296",
+  "llmcommit.trial.glm.expedite-response.reason": "LLM glm: All 4 stockouts were medium-level with tiny inventory (2.8, 5.3d): alerting medium below 6 days fixes these (35000 vs 195000). Costly rows at 10-13.2d had regular-lead 4-8 covering demand, so >=9d goes to monitor (0 vs 45000, e.g. the 11.5/12.4/13.2 rows). A 6-9d rebalance branch cuts 45000 switches to 6000. | swarm aco,pso,aco: llm-proposal #2099 -> base #2101 -> best #2296 (324 evals, train fit -0.3385)",
+  "llmcommit.restore.glm": "v1-metrics-restored",
+  "llmcommit.trial.minimax.should-arbitrate?.rebind": "ok",
+  "llmcommit.trial.minimax.should-arbitrate?.gate": "pass",
+  "llmcommit.trial.minimax.should-arbitrate?.before": "28;20;0.714;1.0",
+  "llmcommit.trial.minimax.should-arbitrate?.after": "8;0;0.0;1.0",
+  "llmcommit.trial.minimax.should-arbitrate?.fiber-metrics-equal": "#t",
+  "llmcommit.trial.minimax.should-arbitrate?.best-id": "2720",
+  "llmcommit.trial.minimax.should-arbitrate?.reason": "LLM minimax: Add the missing high-confidence condition and tighten materiality/exposure to 0.2 and 1,000,000. This excludes low-confidence false positives (0.60–0.67), the 0.194/680,000 case, and the -0.428/690,000/0.91 case, reducing v1’s 71.4% false-arbitration rate while targeting recall ≥0.8. | swarm aco,pso,aco: llm-proposal #2520 -> base #2522 -> best #2720 (205 evals, train fit 1.0)",
+  "llmcommit.trial.minimax.claim-root-cause.rebind": "ok",
+  "llmcommit.trial.minimax.claim-root-cause.gate": "pass",
+  "llmcommit.trial.minimax.claim-root-cause.before": "0.708;23;3161000;0.607",
+  "llmcommit.trial.minimax.claim-root-cause.after": "1.0;9;5210000;1.0",
+  "llmcommit.trial.minimax.claim-root-cause.fiber-metrics-equal": "#t",
+  "llmcommit.trial.minimax.claim-root-cause.best-id": "2943",
+  "llmcommit.trial.minimax.claim-root-cause.reason": "LLM minimax: v1’s accuracy is 0.708 with 23 unknowns and 3,161,000 recovered. The shown demand-forecast-error failures have either market-mismatch=true or bias amounts 0.065–0.081, below the 0.1 cutoff. Broaden that branch to market mismatch OR bias >0.05, preserving supplier-delay precedence and targeting accuracy and recovery. | swarm aco,pso,aco: llm-proposal #2939 -> base #2943 -> best #2943 (264 evals, train fit 2.0)",
+  "llmcommit.trial.minimax.expedite-response.rebind": "ok",
+  "llmcommit.trial.minimax.expedite-response.gate": "pass",
+  "llmcommit.trial.minimax.expedite-response.before": "1;34;0;4;2165000;40",
+  "llmcommit.trial.minimax.expedite-response.after": "18;0;0;1;780000;40",
+  "llmcommit.trial.minimax.expedite-response.fiber-metrics-equal": "#t",
+  "llmcommit.trial.minimax.expedite-response.best-id": "3670",
+  "llmcommit.trial.minimax.expedite-response.reason": "LLM minimax: Change the medium/high supplier-switch branch to alert-planner. V1’s 34 switches cost 1.53M; routing all 35 non-low events to premium freight costs 1.225M and guarantees timely arrival, eliminating four stockouts, including the medium 5.3- and 2.8-day failure rows. Cost falls from 2.165M to 1.225M, stockouts fall from 4 to 0, and fitness improves from -2.565 to -1.225. | swarm aco,pso,aco: llm-proposal #3361 -> base #3364 -> best #3670 (285 evals, train fit -0.88)",
+  "llmcommit.restore.minimax": "v1-metrics-restored",
+  "llmcommit.keep.minimax.should-arbitrate?.rebind": "ok",
+  "llmcommit.keep.minimax.should-arbitrate?.gate": "pass",
+  "llmcommit.keep.minimax.should-arbitrate?.before": "28;20;0.714;1.0",
+  "llmcommit.keep.minimax.should-arbitrate?.after": "8;0;0.0;1.0",
+  "llmcommit.keep.minimax.should-arbitrate?.fiber-metrics-equal": "#t",
+  "llmcommit.keep.minimax.should-arbitrate?.best-id": "2720",
+  "llmcommit.keep.minimax.should-arbitrate?.reason": "LLM minimax: Add the missing high-confidence condition and tighten materiality/exposure to 0.2 and 1,000,000. This excludes low-confidence false positives (0.60–0.67), the 0.194/680,000 case, and the -0.428/690,000/0.91 case, reducing v1’s 71.4% false-arbitration rate while targeting recall ≥0.8. | swarm aco,pso,aco: llm-proposal #2520 -> base #2522 -> best #2720 (205 evals, train fit 1.0)",
+  "llmcommit.keep.glm.claim-root-cause.rebind": "ok",
+  "llmcommit.keep.glm.claim-root-cause.gate": "pass",
+  "llmcommit.keep.glm.claim-root-cause.before": "0.708;23;3161000;0.607",
+  "llmcommit.keep.glm.claim-root-cause.after": "1.0;9;5210000;1.0",
+  "llmcommit.keep.glm.claim-root-cause.fiber-metrics-equal": "#t",
+  "llmcommit.keep.glm.claim-root-cause.best-id": "1680",
+  "llmcommit.keep.glm.claim-root-cause.reason": "LLM glm: All 8 shown failures are demand-forecast-error labeled 'unknown': market-mismatch=#t rows have no forecast-bias, and bias rows (0.065-0.081) fall under the 0.1 cutoff. Broadening the forecast branch to fire on market-signal-mismatch and lowering the bias threshold to 0.06 covers them (~1.33M) without touching the supplier-delay rules. | swarm aco,pso,aco: llm-proposal #1676 -> base #1680 -> best #1680 (304 evals, train fit 2.0)",
+  "llmcommit.keep.glm.expedite-response.rebind": "ok",
+  "llmcommit.keep.glm.expedite-response.gate": "pass",
+  "llmcommit.keep.glm.expedite-response.before": "1;34;0;4;2165000;40",
+  "llmcommit.keep.glm.expedite-response.after": "8;1;2;0;338500;40",
+  "llmcommit.keep.glm.expedite-response.fiber-metrics-equal": "#t",
+  "llmcommit.keep.glm.expedite-response.best-id": "2296",
+  "llmcommit.keep.glm.expedite-response.reason": "LLM glm: All 4 stockouts were medium-level with tiny inventory (2.8, 5.3d): alerting medium below 6 days fixes these (35000 vs 195000). Costly rows at 10-13.2d had regular-lead 4-8 covering demand, so >=9d goes to monitor (0 vs 45000, e.g. the 11.5/12.4/13.2 rows). A 6-9d rebalance branch cuts 45000 switches to 6000. | swarm aco,pso,aco: llm-proposal #2099 -> base #2101 -> best #2296 (324 evals, train fit -0.3385)"
+ },
+ "audit_trail": [
+  "1|5|supervisor|install-policies|should-arbitrate?@v1 claim-root-cause@v1 expedite-response@v1",
+  "2|244017|llm+swarm:glm|mutate:rebind|trial should-arbitrate? reason=LLM glm: v1's 20 false arbitrations (rate 0.714) are mostly low-confidence events (0.44-0.67). Adding (high-confidence? edi-change) gates on confidence >= 0.7, suppressing those rows; recall should hold at 1.0 since every costly row was a false positive, not a miss, and exposure/pct/frozen guards stay unchanged. | swarm aco,pso,aco: llm-proposal #1255 -> base #1259 -> best #1470 (202 evals, train fit 0.889) gate=pass before={28;20;0.714;1.0} after={9;1;0.111;1.0}",
+  "3|251717|llm+swarm:glm|mutate:rebind|trial claim-root-cause reason=LLM glm: All 8 shown failures are demand-forecast-error labeled 'unknown': market-mismatch=#t rows have no forecast-bias, and bias rows (0.065-0.081) fall under the 0.1 cutoff. Broadening the forecast branch to fire on market-signal-mismatch and lowering the bias threshold to 0.06 covers them (~1.33M) without touching the supplier-delay rules. | swarm aco,pso,aco: llm-proposal #1676 -> base #1680 -> best #1680 (304 evals, train fit 2.0) gate=pass before={0.708;23;3161000;0.607} after={1.0;9;5210000;1.0}",
+  "4|259501|llm+swarm:glm|mutate:rebind|trial expedite-response reason=LLM glm: All 4 stockouts were medium-level with tiny inventory (2.8, 5.3d): alerting medium below 6 days fixes these (35000 vs 195000). Costly rows at 10-13.2d had regular-lead 4-8 covering demand, so >=9d goes to monitor (0 vs 45000, e.g. the 11.5/12.4/13.2 rows). A 6-9d rebalance branch cuts 45000 switches to 6000. | swarm aco,pso,aco: llm-proposal #2099 -> base #2101 -> best #2296 (324 evals, train fit -0.3385) gate=pass before={1;34;0;4;2165000;40} after={8;1;2;0;338500;40}",
+  "5|263546|supervisor|ast:restore|undo trial commits of glm -> v1 snapshot 0 restored=#t",
+  "6|265619|llm+swarm:minimax|mutate:rebind|trial should-arbitrate? reason=LLM minimax: Add the missing high-confidence condition and tighten materiality/exposure to 0.2 and 1,000,000. This excludes low-confidence false positives (0.60–0.67), the 0.194/680,000 case, and the -0.428/690,000/0.91 case, reducing v1’s 71.4% false-arbitration rate while targeting recall ≥0.8. | swarm aco,pso,aco: llm-proposal #2520 -> base #2522 -> best #2720 (205 evals, train fit 1.0) gate=pass before={28;20;0.714;1.0} after={8;0;0.0;1.0}",
+  "7|273153|llm+swarm:minimax|mutate:rebind|trial claim-root-cause reason=LLM minimax: v1’s accuracy is 0.708 with 23 unknowns and 3,161,000 recovered. The shown demand-forecast-error failures have either market-mismatch=true or bias amounts 0.065–0.081, below the 0.1 cutoff. Broaden that branch to market mismatch OR bias >0.05, preserving supplier-delay precedence and targeting accuracy and recovery. | swarm aco,pso,aco: llm-proposal #2939 -> base #2943 -> best #2943 (264 evals, train fit 2.0) gate=pass before={0.708;23;3161000;0.607} after={1.0;9;5210000;1.0}",
+  "8|280549|llm+swarm:minimax|mutate:rebind|trial expedite-response reason=LLM minimax: Change the medium/high supplier-switch branch to alert-planner. V1’s 34 switches cost 1.53M; routing all 35 non-low events to premium freight costs 1.225M and guarantees timely arrival, eliminating four stockouts, including the medium 5.3- and 2.8-day failure rows. Cost falls from 2.165M to 1.225M, stockouts fall from 4 to 0, and fitness improves from -2.565 to -1.225. | swarm aco,pso,aco: llm-proposal #3361 -> base #3364 -> best #3670 (285 evals, train fit -0.88) gate=pass before={1;34;0;4;2165000;40} after={18;0;0;1;780000;40}",
+  "9|284492|supervisor|ast:restore|undo trial commits of minimax -> v1 snapshot 0 restored=#t",
+  "10|286615|llm+swarm:minimax|mutate:rebind|keep should-arbitrate? reason=LLM minimax: Add the missing high-confidence condition and tighten materiality/exposure to 0.2 and 1,000,000. This excludes low-confidence false positives (0.60–0.67), the 0.194/680,000 case, and the -0.428/690,000/0.91 case, reducing v1’s 71.4% false-arbitration rate while targeting recall ≥0.8. | swarm aco,pso,aco: llm-proposal #2520 -> base #2522 -> best #2720 (205 evals, train fit 1.0) gate=pass before={28;20;0.714;1.0} after={8;0;0.0;1.0}",
+  "11|294112|llm+swarm:glm|mutate:rebind|keep claim-root-cause reason=LLM glm: All 8 shown failures are demand-forecast-error labeled 'unknown': market-mismatch=#t rows have no forecast-bias, and bias rows (0.065-0.081) fall under the 0.1 cutoff. Broadening the forecast branch to fire on market-signal-mismatch and lowering the bias threshold to 0.06 covers them (~1.33M) without touching the supplier-delay rules. | swarm aco,pso,aco: llm-proposal #1676 -> base #1680 -> best #1680 (304 evals, train fit 2.0) gate=pass before={0.708;23;3161000;0.607} after={1.0;9;5210000;1.0}",
+  "12|301377|llm+swarm:glm|mutate:rebind|keep expedite-response reason=LLM glm: All 4 stockouts were medium-level with tiny inventory (2.8, 5.3d): alerting medium below 6 days fixes these (35000 vs 195000). Costly rows at 10-13.2d had regular-lead 4-8 covering demand, so >=9d goes to monitor (0 vs 45000, e.g. the 11.5/12.4/13.2 rows). A 6-9d rebalance branch cuts 45000 switches to 6000. | swarm aco,pso,aco: llm-proposal #2099 -> base #2101 -> best #2296 (324 evals, train fit -0.3385) gate=pass before={1;34;0;4;2165000;40} after={8;1;2;0;338500;40}"
+ ]
+}

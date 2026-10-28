@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"All 8 shown failures are demand-forecast-error labeled 'unknown': market-mismatch=#t rows have no forecast-bias, and bias rows (0.065-0.081) fall under the 0.1 cutoff. Broadening the forecast branch to fire on market-signal-mismatch and lowering the bias threshold to 0.06 covers them (~1.33M) without touching the supplier-delay rules.\", \"source\": \"(define (claim-root-cause expedite-event)\\n  (cond\\n    ((and (edi-increase? expedite-event)\\n          (supplier-lead-time-miss? expedite-event))\\n     'supplier-delay)\\n    ((or (market-signal-mismatch? expedite-event)\\n         (and (forecast-bias? expedite-event)\\n              (> (bias-amount expedite-event) 0.06)))\\n     'demand-forecast-error)\\n    (else 'unknown)))\"}",
+ "finish": "stop",
+ "latency_s": 25.06,
+ "attempts": 1,
+ "prompt_tokens": 1048,
+ "completion_tokens": 976,
+ "reasoning_tokens": 770,
+ "prompt_sha": "5cad088e745bd562",
+ "provider": "glm"
+}

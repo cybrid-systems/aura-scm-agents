@@ -81,33 +81,37 @@
         34.0,
         0.0,
         4.0,
-        2150000.0
+        2165000.0,
+        40.0
       ],
-      "v1_fit": -2.55,
+      "v1_fit": -2.565,
       "v2": [
         1.0,
         6.0,
         34.0,
-        4.0,
-        1094000.0
+        3.0,
+        1800500.0,
+        40.0
       ],
-      "v2_fit": -1.494,
+      "v2_fit": -2.1005,
       "best": [
+        22.0,
+        1.0,
+        13.0,
         0.0,
-        6.0,
-        40.0,
-        0.0,
-        510000.0
+        1010000.0,
+        40.0
       ],
-      "best_fit": -0.51,
-      "best_stage": "aco",
-      "best_src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 5.0)) (list 'propose-internal-rebalance)) ((>= (risk-rank risk-level) (risk-rank 'medium)) (list 'propose-internal-rebalance)) (else (list 'propose-internal-rebalance))))",
-      "evals": 200,
-      "evals_to_best": 443,
+      "best_fit": -1.01,
+      "best_stage": "pso",
+      "best_src": "(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 12.9128)) (list 'propose-internal-rebalance)) ((>= (risk-rank risk-level) (risk-rank 'medium)) (list 'alert-planner 'immediate-expedite-review)) (else (list 'monitor))))",
+      "evals": 218,
+      "evals_to_best": 494,
       "evals_to_v2": 428,
       "front": [
-        "855|-0.51|0;6;40;0;510000|-510000.0;0.0;-6.0",
-        "840|-0.716|34;0;6;0;716000|-716000.0;0.0;0.0"
+        "1000|-1.01|22;1;13;0;1010000;40|-1010000.0;0.0;-1.0",
+        "856|-1.756|0;0;1;7;1056000;40|-1056000.0;-7.0;0.0",
+        "841|-1.196|34;0;1;0;1196000;40|-1196000.0;0.0;0.0"
       ],
       "metric_names": [
         "expedites",
@@ -122,79 +126,79 @@
     {
       "n": 0,
       "rc": 0,
-      "search_ms": 106463,
-      "process_s": 107.82,
-      "evals": 626,
-      "fingerprint": "should-arbitrate?:273:1.0;claim-root-cause:427:2.0;expedite-response:855:-0.51",
-      "rejects": "parse=29 type=42 type-lint=19 runtime=0",
-      "noisy": "injected=90 rejected=90 clean-rejected=0",
-      "overlay": "begins=632 commits=0 fast-forward=0 merged=0 conflicts=0 rollbacks=632 writes=584 active=0",
+      "search_ms": 173550,
+      "process_s": 175.71,
+      "evals": 644,
+      "fingerprint": "should-arbitrate?:273:1.0;claim-root-cause:427:2.0;expedite-response:1000:-1.01",
+      "rejects": "parse=29 type=44 type-lint=19 runtime=0",
+      "noisy": "injected=92 rejected=92 clean-rejected=0",
+      "overlay": "begins=650 commits=0 fast-forward=0 merged=0 conflicts=0 rollbacks=650 writes=602 active=0",
       "stderr_tail": [],
       "speedup_vs_serial": 1.0
     },
     {
       "n": 1,
       "rc": 0,
-      "search_ms": 109108,
-      "process_s": 110.63,
-      "evals": 626,
-      "fingerprint": "should-arbitrate?:273:1.0;claim-root-cause:427:2.0;expedite-response:855:-0.51",
-      "rejects": "parse=29 type=42 type-lint=19 runtime=0",
-      "noisy": "injected=90 rejected=90 clean-rejected=0",
-      "overlay": "begins=632 commits=0 fast-forward=0 merged=0 conflicts=0 rollbacks=632 writes=584 active=0",
+      "search_ms": 173720,
+      "process_s": 176.01,
+      "evals": 644,
+      "fingerprint": "should-arbitrate?:273:1.0;claim-root-cause:427:2.0;expedite-response:1000:-1.01",
+      "rejects": "parse=29 type=44 type-lint=19 runtime=0",
+      "noisy": "injected=92 rejected=92 clean-rejected=0",
+      "overlay": "begins=650 commits=0 fast-forward=0 merged=0 conflicts=0 rollbacks=650 writes=602 active=0",
       "stderr_tail": [],
-      "speedup_vs_serial": 0.98
+      "speedup_vs_serial": 1.0
     },
     {
       "n": 4,
       "rc": 0,
-      "search_ms": 52509,
-      "process_s": 53.98,
-      "evals": 626,
-      "fingerprint": "should-arbitrate?:273:1.0;claim-root-cause:427:2.0;expedite-response:855:-0.51",
-      "rejects": "parse=29 type=42 type-lint=19 runtime=0",
-      "noisy": "injected=90 rejected=90 clean-rejected=0",
-      "overlay": "begins=632 commits=0 fast-forward=0 merged=0 conflicts=0 rollbacks=632 writes=584 active=0",
+      "search_ms": 111323,
+      "process_s": 113.63,
+      "evals": 644,
+      "fingerprint": "should-arbitrate?:273:1.0;claim-root-cause:427:2.0;expedite-response:1000:-1.01",
+      "rejects": "parse=29 type=44 type-lint=19 runtime=0",
+      "noisy": "injected=92 rejected=92 clean-rejected=0",
+      "overlay": "begins=650 commits=0 fast-forward=0 merged=0 conflicts=0 rollbacks=650 writes=602 active=0",
       "stderr_tail": [],
-      "speedup_vs_serial": 2.03
+      "speedup_vs_serial": 1.56
     },
     {
       "n": 8,
       "rc": 0,
-      "search_ms": 52193,
-      "process_s": 53.69,
-      "evals": 626,
-      "fingerprint": "should-arbitrate?:273:1.0;claim-root-cause:427:2.0;expedite-response:855:-0.51",
-      "rejects": "parse=29 type=42 type-lint=19 runtime=4",
-      "noisy": "injected=90 rejected=90 clean-rejected=4",
-      "overlay": "begins=632 commits=0 fast-forward=0 merged=0 conflicts=0 rollbacks=632 writes=584 active=0",
+      "search_ms": 60920,
+      "process_s": 63.27,
+      "evals": 644,
+      "fingerprint": "should-arbitrate?:273:1.0;claim-root-cause:427:2.0;expedite-response:1000:-1.01",
+      "rejects": "parse=29 type=44 type-lint=19 runtime=0",
+      "noisy": "injected=92 rejected=92 clean-rejected=0",
+      "overlay": "begins=650 commits=0 fast-forward=0 merged=0 conflicts=0 rollbacks=650 writes=602 active=0",
       "stderr_tail": [],
-      "speedup_vs_serial": 2.04
+      "speedup_vs_serial": 2.85
     },
     {
       "n": 16,
       "rc": 0,
-      "search_ms": 44925,
-      "process_s": 46.48,
-      "evals": 626,
-      "fingerprint": "should-arbitrate?:273:1.0;claim-root-cause:427:2.0;expedite-response:855:-0.51",
-      "rejects": "parse=29 type=42 type-lint=19 runtime=0",
-      "noisy": "injected=90 rejected=90 clean-rejected=0",
-      "overlay": "begins=632 commits=0 fast-forward=0 merged=0 conflicts=0 rollbacks=632 writes=584 active=0",
+      "search_ms": 60836,
+      "process_s": 63.15,
+      "evals": 644,
+      "fingerprint": "should-arbitrate?:273:1.0;claim-root-cause:427:2.0;expedite-response:1000:-1.01",
+      "rejects": "parse=29 type=44 type-lint=19 runtime=0",
+      "noisy": "injected=92 rejected=92 clean-rejected=0",
+      "overlay": "begins=650 commits=0 fast-forward=0 merged=0 conflicts=0 rollbacks=650 writes=602 active=0",
       "stderr_tail": [],
-      "speedup_vs_serial": 2.37
+      "speedup_vs_serial": 2.85
     }
   ],
   "deterministic_across_n": true,
   "fingerprints": [
-    "should-arbitrate?:273:1.0;claim-root-cause:427:2.0;expedite-response:855:-0.51"
+    "should-arbitrate?:273:1.0;claim-root-cause:427:2.0;expedite-response:1000:-1.01"
   ],
   "gate": {
-    "evaluated": 626,
-    "rejected": 90,
-    "rejection_rate": 0.144,
-    "noisy": "injected=90 rejected=90 clean-rejected=0",
-    "reasons": "parse=29 type=42 type-lint=19 runtime=0"
+    "evaluated": 644,
+    "rejected": 92,
+    "rejection_rate": 0.143,
+    "noisy": "injected=92 rejected=92 clean-rejected=0",
+    "reasons": "parse=29 type=44 type-lint=19 runtime=0"
   },
   "commit": {
     "should-arbitrate?": {
@@ -234,16 +238,16 @@
       "rebind-one-paren-short": "accepted(lenient)"
     },
     "expedite-response": {
-      "v1": "1;34;0;4;2150000",
-      "v2file": "1;6;34;4;1094000",
+      "v1": "1;34;0;4;2165000;40",
+      "v2file": "1;6;34;3;1800500;40",
       "v1-restored-after-v2": "#t",
       "rebind": "ok",
       "typecheck": "type: Void",
-      "metrics": "0;6;40;0;510000",
+      "metrics": "22;1;13;0;1010000;40",
       "fiber-metrics-equal": "#t",
       "gate": "pass",
       "worst-gate": "fail",
-      "worst-metrics": "1;0;0;13;1970000",
+      "worst-metrics": "0;35;5;4;2220000;40",
       "restored-metrics-equal": "#t",
       "restored-source-equal": "#t",
       "broken-rebind": "accepted(!)",
@@ -251,7 +255,7 @@
       "broken-unchanged": "#t",
       "rebind-one-paren-short": "accepted(lenient)"
     },
-    "_ms": "9030",
+    "_ms": "17191",
     "_mutation_log": "10",
     "_rc": 0
   }

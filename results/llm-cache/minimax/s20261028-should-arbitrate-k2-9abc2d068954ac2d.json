@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add a high-confidence conjunct. V1’s 0.714 false-arbitration rate occurs despite 1.0 recall; this rejects six of eight shown false rows (confidence 0.44–0.67) while leaving magnitude, exposure, and frozen-horizon handling intact, reducing false arbitration while targeting the ≥0.8 recall gate.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 38.59,
+ "attempts": 1,
+ "prompt_tokens": 1097,
+ "completion_tokens": 3761,
+ "reasoning_tokens": 3612,
+ "prompt_sha": "9abc2d068954ac2d",
+ "provider": "minimax"
+}

@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add the supplied high-confidence gate and raise exposure from 500,000 to 700,000. This rejects all eight displayed false-arbitration rows: six have confidence 0.44–0.67, while the 0.83 and 0.91 cases expose only 680,000 and 690,000. It targets v1’s 0.714 false-arbitration rate while preserving eligible positives for the recall ≥0.8 gate.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 700000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 186.7,
+ "attempts": 2,
+ "prompt_tokens": 2194,
+ "completion_tokens": 17927,
+ "reasoning_tokens": 17754,
+ "prompt_sha": "74e8a22785123fe6",
+ "provider": "minimax"
+}

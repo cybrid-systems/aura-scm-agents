@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Adding (high-confidence? edi-change) as a fourth AND condition filters six of the eight cited false rows (confidence 0.44–0.67), directly targeting v1’s 20/28 false arbitrations (rate 0.714) while retaining the magnitude, exposure, and non-frozen criteria to protect recall.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 125.52,
+ "attempts": 2,
+ "prompt_tokens": 2194,
+ "completion_tokens": 10481,
+ "reasoning_tokens": 10334,
+ "prompt_sha": "f2b91240caf979d7",
+ "provider": "minimax"
+}

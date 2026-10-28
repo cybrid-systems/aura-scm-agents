@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\": \"Replace the medium/high supplier-switch branch with alert-planner (35k, always in time) when inventory-days < 8, else monitor (free; regular lead ≤ 8 days). v1's 34 switches cost 1.53M and 4 stockouts (medium 5.3d with alt-lead 7; medium 2.8d with alt-lead 4); ample rows (11.5d, 12.4d, 13.2d) need no switch.\",\"source\": \"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (>= (risk-rank risk-level) (risk-rank 'medium))\\n          (< inventory-days 8))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    (else\\n     (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 198.1,
+ "attempts": 2,
+ "prompt_tokens": 2964,
+ "completion_tokens": 21247,
+ "reasoning_tokens": 21069,
+ "prompt_sha": "fffb7245ce286b14",
+ "provider": "minimax"
+}

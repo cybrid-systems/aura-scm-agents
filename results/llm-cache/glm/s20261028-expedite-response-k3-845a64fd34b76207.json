@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"All 4 stockouts were medium-level with tiny inventory (2.8, 5.3d): alerting medium below 6 days fixes these (35000 vs 195000). Costly rows at 10-13.2d had regular-lead 4-8 covering demand, so >=9d goes to monitor (0 vs 45000, e.g. the 11.5/12.4/13.2 rows). A 6-9d rebalance branch cuts 45000 switches to 6000.\", \"source\": \"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (>= (risk-rank risk-level) (risk-rank 'medium)) (< inventory-days 6))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    ((and (>= (risk-rank risk-level) (risk-rank 'medium)) (< inventory-days 9))\\n     (list 'propose-internal-rebalance))\\n    (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 118.52,
+ "attempts": 1,
+ "prompt_tokens": 1323,
+ "completion_tokens": 4674,
+ "reasoning_tokens": 4443,
+ "prompt_sha": "845a64fd34b76207",
+ "provider": "glm"
+}

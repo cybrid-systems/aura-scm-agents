@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"Six of eight listed false-arbitration rows have confidence 0.44-0.67, all below the 0.7 high-confidence bar (recall had 1.0 slack above the 0.8 gate). Adding (high-confidence? edi-change) as a conjunct prunes those low-trust arbitrations, cutting the 0.714 false-arbitration-rate without touching magnitude, exposure, or frozen-horizon logic.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 33.44,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 1290,
+ "reasoning_tokens": 1120,
+ "prompt_sha": "63460240ce6603fa",
+ "provider": "glm"
+}

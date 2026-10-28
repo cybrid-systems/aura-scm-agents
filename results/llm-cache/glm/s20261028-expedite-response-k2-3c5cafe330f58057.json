@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"v1 paid 45000 on 34 medium/high events (1530000) yet still took 4 stockouts when alt-supplier-lead exceeded inventory-days. Alert-planner (35000, always timely) dominates supplier-switch. Alert for rank>=medium when inventory<8 (covers observed regular-leads up to 8), else monitor: stockouts 4->0, cost ~2.17M -> ~0.6M.\", \"source\": \"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (>= (risk-rank risk-level) (risk-rank 'medium)) (< inventory-days 8))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 148.89,
+ "attempts": 1,
+ "prompt_tokens": 1323,
+ "completion_tokens": 5679,
+ "reasoning_tokens": 5502,
+ "prompt_sha": "3c5cafe330f58057",
+ "provider": "glm"
+}

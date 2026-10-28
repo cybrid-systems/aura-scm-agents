@@ -21,20 +21,32 @@
     (hash "accuracy" (ratio ok (length rows)) "unknown" (count-if (lambda (r) (eq? (cdr r) 'unknown)) rows)
           "recovered" recovered "recovery-rate" (ratio recovered total))))
 
-(define (m-expedite)
-  (let loop ((rs risk-history) (exp 0) (sw 0) (reb 0) (so 0) (cost 0))
+;; cost model v2 (hidden row fields "hits" / "transfer" / "alt-lead", see scripts/gen_data.py):
+;; a stockout only happens when the risk materializes AND the chosen response arrives too late;
+;; sister-plant rebalances get dearer with every transfer (stock depletion), so "rebalance
+;; everywhere" no longer wins; an expedite review (premium freight) always arrives in time.
+(define (exp-cost-rows respond rs)
+  (let loop ((rs rs) (n 0) (exp 0) (sw 0) (reb 0) (so 0) (cost 0))
     (if (null? rs)
-        (hash "expedites" exp "supplier-switches" sw "rebalances" reb "stockouts" so "cost" cost)
-        (let* ((r (car rs)) (a (car (risk-respond (hash-ref r "level") (hash-ref r "days"))))
-               (late (< (hash-ref r "days") (hash-ref r "lead"))))
-          (cond ((eq? a 'alert-planner) (loop (cdr rs) (+ exp 1) sw reb so (+ cost 20000)))
-                ((eq? a 'suggest-alternative-supplier) (loop (cdr rs) exp (+ sw 1) reb so (+ cost 45000)))
+        (list exp sw reb so cost n)
+        (let* ((r (car rs)) (a (car (respond (hash-ref r "level") (hash-ref r "days"))))
+               (hits (hash-ref r "hits")) (days (hash-ref r "days"))
+               (alt-so (if (and hits (< days (hash-ref r "alt-lead"))) 1 0)))
+          (cond ((eq? a 'alert-planner) (loop (cdr rs) (+ n 1) (+ exp 1) sw reb so (+ cost 35000)))
+                ((eq? a 'suggest-alternative-supplier)
+                 (loop (cdr rs) (+ n 1) exp (+ sw 1) reb (+ so alt-so) (+ cost 45000 (* alt-so 150000))))
                 ((eq? a 'propose-internal-rebalance)
                  ;; no sister-plant stock -> planner falls back to the alternative supplier
                  (if (hash-ref r "rebalance-ok")
-                     (loop (cdr rs) exp sw (+ reb 1) so (+ cost 6000))
-                     (loop (cdr rs) exp (+ sw 1) (+ reb 1) so (+ cost 6000 45000))))
-                (else (if late (loop (cdr rs) exp sw reb (+ so 1) (+ cost 150000)) (loop (cdr rs) exp sw reb so cost))))))))
+                     (let ((s1 (if (and hits (< days (hash-ref r "transfer"))) 1 0)))
+                       (loop (cdr rs) (+ n 1) exp sw (+ reb 1) (+ so s1) (+ cost 6000 (* 1500 reb) (* s1 150000))))
+                     (loop (cdr rs) (+ n 1) exp (+ sw 1) (+ reb 1) (+ so alt-so) (+ cost 6000 (* 1500 reb) 45000 (* alt-so 150000)))))
+                (else (let ((s2 (if (and hits (< days (hash-ref r "lead"))) 1 0)))
+                        (loop (cdr rs) (+ n 1) exp sw reb (+ so s2) (+ cost (* s2 150000))))))))))
+(define (m-expedite)
+  (let ((m (exp-cost-rows risk-respond risk-history)))
+    (hash "expedites" (list-ref m 0) "supplier-switches" (list-ref m 1) "rebalances" (list-ref m 2) "stockouts" (list-ref m 3)
+          "cost" (list-ref m 4) "events" (list-ref m 5))))
 
 ;; gates: a mutation is kept only if the business guard holds vs. the previous version
 (define (g-arbitration old new) (and (>= (hash-ref new "recall") 0.8) (<= (hash-ref new "false-arbitration-rate") (hash-ref old "false-arbitration-rate"))))
