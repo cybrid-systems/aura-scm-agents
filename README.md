@@ -239,6 +239,84 @@ materializes with p = .8 / .45 / .12 (high / medium / low), plus transfer and al
 A stockout costs 150k. Fitness is normalized per 40 events. Rebalance-everywhere now scores −2.43 on train, worse than v1 (−2.565)
 → v2 (−2.10) → the optimum (≈ −0.7). The demo table above uses this model.
 
+**Arms, 8 seeds, guarded** (seeds 20261028-35; K = 4 proposals per policy, model and seed, temperature 0.8; guards.v1 in the
+gate; fibers N = 2 per process, 4 seed processes in parallel; 5 metric reps; swarm budget PSO 16×10, ACO 16×8 ×2 for swarm-only and
+LLM+swarm alike; each seed reseeds the swarm). 121 new LLM calls, 71 cache hits from the 3-seed run. `results/llm-search.{md,json}`.
+"hard hold-out (claims)" is a second claims hold-out (96 rows, seed 20261031) with a distribution shift (small forecast biases 0.005-0.06 and
+mixed evidence). It is report-only and never used for selection.
+
+| policy | arm | hold-out fitness (mean ± sd) | train fitness | gap train−hold-out | hard hold-out (claims) | guards pass (seeds) | guard rejects | hold-out metrics (first seed) | evals | gate reject rate |
+|---|---|---|---|---|---|---|---|---|---|---|
+| should-arbitrate? | v1 | 0.295 ± 0.000 | 0.286 | -0.009 | - | 8/8 | 0 | 61;43;0.705;1 | - | - |
+| should-arbitrate? | v2 | 0.889 ± 0.000 | 0.875 | -0.014 | - | 8/8 | 0 | 16;0.0;0.0;0.889 | - | - |
+| should-arbitrate? | swarm | 0.826 ± 0.191 | 0.947 | 0.121 | - | 8/8 | arb.frozen-never 96 | 16;0.0;0.0;0.889 | 211 | 0.212 |
+| should-arbitrate? | llm:glm | 0.806 ± 0.073 | 0.585 | -0.221 | - | 8/8 | 0 | 24;6;0.25;1 | 4 | 0.000 |
+| should-arbitrate? | llm+swarm:glm | 0.981 ± 0.035 | 0.986 | 0.006 | - | 8/8 | arb.frozen-never 90 | 20;2;0.1;1 | 201 | 0.202 |
+| should-arbitrate? | llm:minimax | 0.814 ± 0.066 | 0.641 | -0.172 | - | 8/8 | 0 | 16;0.0;0.0;0.889 | 4 | 0.000 |
+| should-arbitrate? | llm+swarm:minimax | 0.993 ± 0.018 | 0.986 | -0.007 | - | 8/8 | arb.frozen-never 75 | 18;0.0;0.0;1 | 195 | 0.214 |
+| claim-root-cause | v1 | 1.108 ± 0.000 | 1.315 | 0.207 | 0.705 ± 0.000 | 0/8 | 0 | 0.615;53;4907000;0.493 | - | - |
+| claim-root-cause | v2 | 2.000 ± 0.000 | 2.000 | 0.000 | 1.559 ± 0.000 | 8/8 | 0 | 1;16;9953000;1 | - | - |
+| claim-root-cause | swarm | 2.000 ± 0.000 | 2.000 | 0.000 | 2.000 ± 0.000 | 8/8 | claims.evidence-not-unknown 89 | 1;16;9953000;1 | 222 | 0.147 |
+| claim-root-cause | llm:glm | 1.108 ± 0.000 | 1.315 | 0.207 | 0.705 ± 0.000 | 0/8 | claims.evidence-not-unknown 29 | 0.615;53;4907000;0.493 | 4 | 1.000 |
+| claim-root-cause | llm+swarm:glm | 1.833 ± 0.000 | 1.812 | -0.021 | 1.854 ± 0.000 | 8/8 | claims.evidence-not-unknown 279 | 0.833;0.0;9953000;1 | 256 | 0.216 |
+| claim-root-cause | llm:minimax | 1.777 ± 0.386 | 1.829 | 0.052 | 1.345 ± 0.370 | 6/8 | claims.evidence-not-unknown 25 | 0.615;53;4907000;0.493 | 4 | 0.781 |
+| claim-root-cause | llm+swarm:minimax | 1.958 ± 0.072 | 1.953 | -0.005 | 1.798 ± 0.194 | 8/8 | claims.evidence-not-unknown 368 | 0.833;0.0;9953000;1 | 164 | 0.389 |
+| expedite-response | v1 | -1.883 ± 0.000 | -2.565 | -0.682 | - | 8/8 | 0 | 5;52;0.0;5;3265000;80 | - | - |
+| expedite-response | v2 | -1.838 ± 0.000 | -2.100 | -0.263 | - | 8/8 | 0 | 5;10;52;3;3376000;80 | - | - |
+| expedite-response | swarm | -1.293 ± 0.000 | -1.012 | 0.281 | - | 8/8 | exp.critical-alert 122, exp.high-never-monitor 86 | 45;2;12;3;2286000;80 | 221 | 0.258 |
+| expedite-response | llm:glm | -1.409 ± 0.229 | -1.410 | -0.001 | - | 8/8 | exp.high-never-monitor 15 | 57;0.0;0.0;2;2295000;80 | 4 | 0.469 |
+| expedite-response | llm+swarm:glm | -1.271 ± 0.047 | -1.098 | 0.174 | - | 8/8 | exp.critical-alert 298, exp.high-never-monitor 187 | 45;2;12;3;2286000;80 | 267 | 0.319 |
+| expedite-response | llm:minimax | -1.248 ± 0.000 | -1.225 | 0.022 | - | 8/8 | exp.high-never-monitor 1 | 57;0.0;0.0;2;2295000;80 | 4 | 0.031 |
+| expedite-response | llm+swarm:minimax | -1.300 ± 0.062 | -1.144 | 0.156 | - | 8/8 | exp.critical-alert 135, exp.high-never-monitor 115 | 57;0.0;0.0;2;2295000;80 | 205 | 0.286 |
+
+**Significance** (paired over the 8 seeds, hold-out fitness; 95% bootstrap CI of the mean difference, 10k resamples; exact
+two-sided sign-flip test over all 2^8 sign patterns, so the smallest possible p is 0.0078):
+
+| model | policy | comparison | mean diff | 95% bootstrap CI | sign-flip p | wins/ties/losses |
+|---|---|---|---|---|---|---|
+| glm | should-arbitrate? | LLM+swarm vs-swarm | +0.1545 | [+0.0512, +0.3130] | 0.0156 | 7/1/0 |
+| glm | should-arbitrate? | LLM+swarm vs-llm-only | +0.1742 | [+0.1172, +0.2313] | 0.0078 | 8/0/0 |
+| glm | claim-root-cause | LLM+swarm vs-swarm | -0.1670 | [-0.1670, -0.1670] | 0.0078 | 0/0/8 |
+| glm | claim-root-cause | LLM+swarm vs-llm-only | +0.7250 | [+0.7250, +0.7250] | 0.0078 | 8/0/0 |
+| glm | claim-root-cause | LLM+swarm vs-swarm (hard hold-out) | -0.1460 | [-0.1460, -0.1460] | 0.0078 | 0/0/8 |
+| glm | claim-root-cause | LLM+swarm vs-llm-only (hard hold-out) | +1.1490 | [+1.1490, +1.1490] | 0.0078 | 8/0/0 |
+| glm | expedite-response | LLM+swarm vs-swarm | +0.0216 | [-0.0062, +0.0575] | 0.25 | 3/3/2 |
+| glm | expedite-response | LLM+swarm vs-llm-only | +0.1377 | [-0.0178, +0.3196] | 0.25 | 3/2/3 |
+| minimax | should-arbitrate? | LLM+swarm vs-swarm | +0.1674 | [+0.0701, +0.3203] | 0.0156 | 7/1/0 |
+| minimax | should-arbitrate? | LLM+swarm vs-llm-only | +0.1799 | [+0.1250, +0.2313] | 0.0078 | 8/0/0 |
+| minimax | claim-root-cause | LLM+swarm vs-swarm | -0.0418 | [-0.1044, +0.0000] | 0.5 | 0/6/2 |
+| minimax | claim-root-cause | LLM+swarm vs-llm-only | +0.1812 | [+0.0000, +0.4531] | 0.5 | 2/6/0 |
+| minimax | claim-root-cause | LLM+swarm vs-swarm (hard hold-out) | -0.2019 | [-0.3308, -0.0734] | 0.0625 | 0/3/5 |
+| minimax | claim-root-cause | LLM+swarm vs-llm-only (hard hold-out) | +0.4526 | [+0.1654, +0.7732] | 0.0625 | 5/3/0 |
+| minimax | expedite-response | LLM+swarm vs-swarm | -0.0066 | [-0.0551, +0.0284] | 0.9375 | 3/3/2 |
+| minimax | expedite-response | LLM+swarm vs-llm-only | -0.0521 | [-0.1006, -0.0171] | 0.0625 | 0/3/5 |
+
+Per model (8 seeds):
+
+| model | calls | valid (parse ok) | gate pass | input tok | output tok (reasoning) | latency mean / p50 / max s | list-price USD | accepted LLM-only / LLM+swarm | USD per accepted LLM-only / LLM+swarm | evals per accepted LLM+swarm |
+|---|---|---|---|---|---|---|---|---|---|---|
+| glm (glm-5.3-flash) | 96 | 1.00 {'valid': 96} | 49/96 (0.51) | 108054 | 261182 (242432) | 68.7 / 34.1 / 335.0 | 0.1468 | 15 / 24 (of 24) | 0.00979 / 0.00612 | 241.3 |
+| minimax (MiniMax-M3.1-Flash) | 96 | 1.00 {'valid': 96} | 70/96 (0.73) | 144862 | 560698 (544022) | 56.06 / 39.27 / 198.1 | 0.35815 | 22 / 24 (of 24) | 0.01628 / 0.01492 | 187.9 |
+
+**Findings (8 seeds, with guards).**
+* **The guards change the picture on `expedite-response`.** The earlier best arms (GLM+swarm −0.569, MiniMax LLM-only) put high
+  risk on `monitor` and are now rejected. Under guards.v1 LLM+swarm is no better than swarm-only: GLM +0.022 (CI [−0.006, +0.058],
+  p = 0.25), MiniMax −0.007 (p = 0.94). MiniMax LLM+swarm is slightly *worse* than MiniMax LLM-only (−0.052, CI [−0.101, −0.017],
+  p = 0.0625), because the swarm overfits the 40 train events (gap 0.156 vs 0.022).
+* **`should-arbitrate?`: LLM+swarm is significantly best.** GLM 0.981 ± 0.035 and MiniMax 0.993 ± 0.018, against swarm-only
+  0.826 ± 0.191 and LLM-only ≈ 0.81. Both beat swarm-only (p = 0.0156, 7/1/0) and LLM-only (p = 0.0078, 8/0/0). The generalization
+  gap is ≈ 0. The swarm-only sd comes from seed 20261032, where it stalls at train 0.575 (hold-out 0.333).
+* **Claims ties are broken, against LLM+swarm.** On the standard hold-out swarm-only and v2 tie at 2.0. The hard hold-out separates
+  them: swarm-only 2.000, GLM+swarm 1.854, MiniMax+swarm 1.798 ± 0.194. LLM+swarm < swarm-only on the hard hold-out (GLM −0.146,
+  8/8 seeds, p = 0.0078; MiniMax −0.202, p = 0.0625). The guard rejects most LLM claims proposals: they lower the bias threshold and
+  still return `unknown` on small-bias evidence. The swarm then starts from v1 and reaches train 1.81 instead of the template optimum.
+* **Generalization gap** (train − hold-out, mean over seeds): swarm-only 0.12 / 0.00 / 0.28 (arb / claims / expedite); GLM+swarm 0.01 / −0.02 / 0.17;
+  MiniMax+swarm −0.01 / −0.01 / 0.16; LLM-only is under-fit on arbitration (negative gap) and GLM LLM-only claims falls back to v1 (gap 0.21: every GLM claims proposal fails the guard).
+* **GLM vs MiniMax.** Every answer parsed for both models (96/96). Under guards, MiniMax proposals pass the gate more often (73% vs 51%).
+  MiniMax used 2.1× the output tokens (mostly reasoning) and costs 2.4× at list price ($0.358 vs $0.147 for 96 calls).
+
+<details><summary>Previous 3-seed run without guards (eb43aef)</summary>
+
 **Arms** (seeds 20261028/29/30; K = 4 proposals per policy, model and seed, temperature 0.8; fibers N = 8; 5 metric reps;
 swarm budget PSO 16×10, ACO 16×8 ×2 for swarm-only and for LLM+swarm alike):
 
@@ -309,7 +387,11 @@ beats v1 on train fitness **and** passes the business gate vs v1.
   * MiniMax (arbitration): "V1 makes 20 false arbitrations among 28 decisions (71.4%) while recall is 1.0; six of eight listed false
     positives have confidence below 0.7…". It is accurate and gate-aware ("preserving the 0.8 recall requirement") but rarely
     proposes more than one change.
-* **Commits** (first seed): per model, trial commits of all 3 policies pass the business gate, installed metrics equal the fiber
+*
+
+</details>
+
+**Commits** (first seed): per model, trial commits of all 3 policies pass the business gate, installed metrics equal the fiber
   metrics, and v1 is restored. Then the train-best LLM+swarm per policy is kept: MiniMax for arbitration, GLM for claims and
   expedite. `mutation-log` has 6 entries.
   * Each rebind reason reads `LLM <model>: <reason> | swarm aco,pso,aco: llm-proposal #a -> base #b -> best #c (n evals, train fit x)`.
@@ -317,7 +399,7 @@ beats v1 on train fitness **and** passes the business gate vs v1.
     gate result), one per Aura attempt, and one per commit (base/best attempt ids, swarm attempt range, before/after).
 
 **Limits.**
-* 3 seeds; the swarm reaches the same optimum on every seed, so its sd is 0.
+* 8 seeds; the exact sign-flip test cannot go below p = 0.0078 with 8 pairs. Several arms are deterministic across seeds (sd 0), so their bootstrap CI collapses to a point.
 * The LLM spread comes from sampling only (temperature 0.8, no API seed is passed).
 * Labels are synthetic.
 * About 8-11 candidates per run hit the fiber closure flake (aura#4745); retry + majority vote absorb it, counted as `llm.flakes`.
@@ -492,6 +574,7 @@ KNU-55，共 7 个节点 3 跳；每个节点一个 scope 任务；`expedite-res
 
 ### 领域守卫（guards.v1）
 业务不变量以 Aura 工作区 EDSL 谓词实现（`aura/policies/guards.v1.aura`），可查询、可版本化（mutate:rebind 记入变更日志），不写死在 Python 中：高风险绝不映射为 monitor；库存天数低于临界值（2.0）至少 alert-planner（相对 v1 不退化）；冻结期变更的仲裁召回保持 0；有证据的已标注索赔绝不返回 unknown。守卫在 fiber 路径上于协调器执行（fiber 内执行会在 e6f4169e0 上崩溃，`SCM_GUARDS_IN_FIBERS=1` 可复现）。对上一轮结果的复核：MiniMax+swarm 的 3 个 expedite 获胜者全部被拒（high-never-monitor 41/27/41）。
+8 个种子（守卫开启）的显著性结果：should-arbitrate? 上 LLM+swarm 显著优于 swarm-only（p=0.0156）与 LLM-only（p=0.0078）；expedite-response 上与 swarm-only 无显著差异；claims 在困难留出集上 swarm-only（2.000）优于 LLM+swarm（GLM 1.854，p=0.0078）。
 
 ## Filed orchestration issues / 已提交的编排问题
 
