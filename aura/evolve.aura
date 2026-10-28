@@ -15,10 +15,10 @@
 
 (define (m-claims)
   (let* ((rows (map (lambda (c) (cons c (claims-classify c))) claim-history))
-         (ok (count-if (lambda (r) (sym=? (cdr r) (hash-ref (car r) "truth"))) rows))
-         (recovered (sum-by (lambda (r) (if (and (sym=? (cdr r) (hash-ref (car r) "truth")) (not (sym=? (cdr r) 'unknown))) (hash-ref (car r) "amount") 0)) rows))
-         (total (sum-by (lambda (r) (if (sym=? (hash-ref (car r) "truth") 'unknown) 0 (hash-ref (car r) "amount"))) rows)))
-    (hash "accuracy" (ratio ok (length rows)) "unknown" (count-if (lambda (r) (sym=? (cdr r) 'unknown)) rows)
+         (ok (count-if (lambda (r) (eq? (cdr r) (hash-ref (car r) "truth"))) rows))
+         (recovered (sum-by (lambda (r) (if (and (eq? (cdr r) (hash-ref (car r) "truth")) (not (eq? (cdr r) 'unknown))) (hash-ref (car r) "amount") 0)) rows))
+         (total (sum-by (lambda (r) (if (eq? (hash-ref (car r) "truth") 'unknown) 0 (hash-ref (car r) "amount"))) rows)))
+    (hash "accuracy" (ratio ok (length rows)) "unknown" (count-if (lambda (r) (eq? (cdr r) 'unknown)) rows)
           "recovered" recovered "recovery-rate" (ratio recovered total))))
 
 (define (m-expedite)
@@ -27,9 +27,9 @@
         (hash "expedites" exp "supplier-switches" sw "rebalances" reb "stockouts" so "cost" cost)
         (let* ((r (car rs)) (a (car (risk-respond (hash-ref r "level") (hash-ref r "days"))))
                (late (< (hash-ref r "days") (hash-ref r "lead"))))
-          (cond ((sym=? a 'alert-planner) (loop (cdr rs) (+ exp 1) sw reb so (+ cost 20000)))
-                ((sym=? a 'suggest-alternative-supplier) (loop (cdr rs) exp (+ sw 1) reb so (+ cost 45000)))
-                ((sym=? a 'propose-internal-rebalance)
+          (cond ((eq? a 'alert-planner) (loop (cdr rs) (+ exp 1) sw reb so (+ cost 20000)))
+                ((eq? a 'suggest-alternative-supplier) (loop (cdr rs) exp (+ sw 1) reb so (+ cost 45000)))
+                ((eq? a 'propose-internal-rebalance)
                  ;; no sister-plant stock -> planner falls back to the alternative supplier
                  (if (hash-ref r "rebalance-ok")
                      (loop (cdr rs) exp sw (+ reb 1) so (+ cost 6000))

@@ -93,15 +93,14 @@
         #t)
     (let ((j (orch:scope-join-all :timeout-ms 10000)))
       (audit! "supervisor" "scope-join-all" (format "~a status=~a" case-id (hash-ref j "status"))))
-    ;; defensive: staged tasks lost by the runtime (they never ran although join-all said ok,
-    ;; probes/scope-lost-after-supervise-batch.aura) are detected and executed inline
+    ;; a staged task that never ran although join-all said ok is a runtime bug (aura#4725/#4726, fixed in
+    ;; 3162d79ff): it is counted and audited, never executed inline.
     (for-each (lambda (p)
                 (let ((k (string-append case-id ":exec:" (hash-ref p "node"))))
                   (if (or (bb k) (string=? (hash-ref p "action") "monitor")) #t
                       (begin
                         (set! lost (+ lost 1))
-                        (audit! "supervisor" "scope-task-lost" (format "~a ~a: staged body never ran; executed inline" case-id (hash-ref p "node")))
-                        (bb! k (if (equal? decision "rejected") "aborted" "done"))))))
+                        (audit! "supervisor" "scope-task-lost" (format "~a ~a: staged body never ran" case-id (hash-ref p "node")))))))
               plan)
     (set! exec-done (count-if (lambda (p) (equal? (bb (string-append case-id ":exec:" (hash-ref p "node"))) "done")) plan))
     ;; ------------------------------------------------ unified decision package
@@ -133,7 +132,8 @@
       (emit (string-append P ".recovery-opportunity") (hash-ref cl "recovery-opportunity"))
       (for-each (lambda (r) (emit (string-append P ".rule") r)) (hash-ref cl "rules"))
       (emit (string-append P ".exec-done") exec-done)
-      (emit (string-append P ".exec-lost-recovered") lost)
+      (emit (string-append P ".exec-lost") lost)
+      (emit (string-append P ".risk-missing") (hash-ref risk "missing"))
       (emit (string-append P ".exec-state") (map (lambda (p) (format "~a=~a" (hash-ref p "node") (bb (string-append case-id ":exec:" (hash-ref p "node"))))) plan))
       (emit (string-append P ".cancel") cancel-info)
       (emit (string-append P ".messages") MSG-COUNT)

@@ -13,9 +13,8 @@
       (cond ((= i n) (reverse (cons (substring s start n) acc)))
             ((= (string-ref s i) c) (loop (+ i 1) (+ i 1) (cons (substring s start i) acc)))
             (else (loop (+ i 1) start acc))))))
-;; Symbols returned by workspace (set-code) policies are not eq? to symbols quoted in
-;; the --load program, so symbolic results are compared by name.
-(define (sym=? a b) (string=? (format "~a" a) (format "~a" b)))
+;; Symbols returned by workspace (set-code) policies are interned since aura#4727
+;; (88ba4e1fe), so policy results are compared with eq? directly.
 (define (hg h k d) (if (hash-has-key? h k) (hash-ref h k) d))
 (define (fmt2 x) (/ (round (* x 1000.0)) 1000.0))
 (define (ratio a b) (if (= b 0) 0.0 (fmt2 (/ (* 1.0 a) b))))

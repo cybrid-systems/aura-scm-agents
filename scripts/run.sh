@@ -18,6 +18,7 @@ DOCKER="docker"; docker info >/dev/null 2>&1 || DOCKER="sudo docker"
 mounts=(-v "$REPO:$REPO" -v "$BIN_DIR:$BIN_DIR")
 [ -d "$LIBS" ] && mounts+=(-v "$LIBS:$LIBS")
 [ -n "${AURA_EXTRA_MOUNT:-}" ] && mounts+=(-v "$AURA_EXTRA_MOUNT:$AURA_EXTRA_MOUNT")
+[ -n "${AURA_TIER_JIT:-}" ] && mounts+=(-e "AURA_TIER_JIT=$AURA_TIER_JIT")
 exec $DOCKER run --rm -i --memory=4g --entrypoint bash --user "$(id -u):$(id -g)" -e HOME=/tmp "${mounts[@]}" -w "$REPO" \
   -e AURA_SANDBOX=off -e AURA_PIPELINE_STRICT=0 -e SCM_MODE="${SCM_MODE:-all}" "$IMAGE" \
   -c "LD_LIBRARY_PATH=$LIBS:${AURA_EXTRA_MOUNT:-} timeout ${SCM_TIMEOUT:-300} $AURA_BIN --load $FILE"

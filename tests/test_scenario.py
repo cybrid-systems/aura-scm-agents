@@ -35,7 +35,7 @@ class TestDemo(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         stdout, stderr, rc, _ = run_demo.run()
-        cls.rc, cls.r, cls.stderr = rc, run_demo.parse(stdout), stderr
+        cls.rc, cls.r, cls.stderr, cls.stdout = rc, run_demo.parse(stdout), stderr, stdout
 
     def test_completes(self):
         self.assertEqual(self.rc, 0, self.stderr[-1000:])
@@ -50,9 +50,11 @@ class TestDemo(unittest.TestCase):
         self.assertTrue(any(a.startswith("BRK-200|expedite-review") for a in self.r[f"{P}.action"]))
         self.assertTrue(self.r.get(f"{P}.conflict"))
         self.assertIn("status=partial ok=7 err=1", self.r[f"{P}.forensics-batch"])
-        # every non-monitor action executed exactly once (lost scope tasks are recovered inline)
+        # every non-monitor action executed exactly once by its own scope body: nothing lost, nothing re-run inline
         n_exec = sum(1 for a in self.r[f"{P}.action"] if "|monitor|" not in a)
         self.assertEqual(int(self.r[f"{P}.exec-done"]), n_exec)
+        self.assertEqual(int(self.r[f"{P}.exec-lost"]), 0)
+        self.assertEqual(int(self.r[f"{P}.risk-missing"]), 0)
 
     def test_case2_reject_cancels(self):
         P = "pkg.CASE-2"
@@ -74,6 +76,13 @@ class TestDemo(unittest.TestCase):
         self.assertLessEqual(int(r["evo.expedite-response.v2.metrics.stockouts"]), int(r["evo.expedite-response.v1.stockouts"]))
         self.assertTrue(r["evo.parse-gate"].startswith("rejected"))
         self.assertIn("增加市场信号不匹配作为预测误差判定条件", r["evo.mutation-log"])
+
+    def test_no_lost_scope_tasks(self):
+        for c in ("CASE-1", "CASE-2", "CASE-3"):
+            self.assertEqual(int(self.r[f"pkg.{c}.exec-lost"]), 0, c)
+            self.assertEqual(int(self.r[f"pkg.{c}.risk-missing"]), 0, c)
+        self.assertNotIn("scope-task-lost", self.stdout)
+        self.assertNotIn("scope-task-missing", self.stdout)
 
     def test_case3_uses_evolved_policy(self):
         acts = self.r["pkg.CASE-3.action"]

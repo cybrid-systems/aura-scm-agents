@@ -64,8 +64,9 @@ Adaptations needed to run the user-supplied snippets on Aura (documented, not hi
    the Risk agent turns the action list into a costed proposal.
 4. **Call sites**: thin workspace entry points (`demand-decide`, `claims-classify`, `risk-respond`) are what the agents
    call and what `query:calls` / `(query :def-use ...)` find before a mutation.
-5. **Symbol comparison**: a symbol returned by a workspace function is not `eq?` to a quoted symbol in the program
-   (`probes/workspace-symbol-eq.aura`), so results are compared by name (`sym=?`).
+5. **Symbol comparison**: policy results are compared with `eq?`. Before aura#4727 (fixed in 88ba4e1fe) a symbol
+   returned by a workspace function was not `eq?` to a quoted symbol (`probes/workspace-symbol-eq.aura`) and the demo
+   compared by name; that workaround is gone.
 
 ### Evolution loop and results (deterministic, `results/demo.md`)
 
@@ -100,23 +101,26 @@ and Aura's own `(query :mutation-log)` records the same reasons (`op=rebind sum=
 
 ## Honest notes / limitations
 
-* **No speed-up is claimed.** Aura fibers are cooperatively scheduled and serialized on one evaluator
-  (aura#4707), so "parallel" agents are concurrent, not parallel.
-* **Agent turns are pumped by the supervisor.** On Aura main 235bcfa6b, `orch:agent-recv` inside an
-  `orch:spawn-agent` body never sees mail and sending from it returns `backpressure` (probe `p4/p5` in the issue);
-  `orch:agent-ask` cannot be answered by an in-process responder (the request arrives only after the timeout;
-  the reply gets `unknown-corr`). So agents are registered with `orch:spawn-agent` for mailbox identity, a
-  supervisor pump drains each mailbox and runs the agent's handler, and ask/reply is implemented over
-  send/recv with correlation ids (`kind|from|corr|body`). Payloads must be strings, so structured data lives on a
-  blackboard and messages carry keys.
-* `orch:supervise-batch` is called with `:watch-scope #f`: with the default it returned `ok, ok-count=0` before the
-  tasks ran.
-* Scope tasks spawned after `orch:supervise-batch` / `orch:run-workflow` can be silently lost
-  (`probes/scope-lost-after-*.aura`). The demo detects a missing result after `scope-join-all` and recomputes or
-  executes it inline, recording `scope-task-missing` / `scope-task-lost` in the audit trail (CASE-1 shows 4 lost
-  execution tasks recovered, CASE-3 two risk tasks).
-* `orch:scope-cancel-all` reports the tasks cancelled but does not stop a body that keeps yielding; the staged
-  execution tasks therefore also check a `decision` flag (cooperative cancel).
+Validated on Aura main **e6f4169e0** (2026-10-28), `AURA_TIER_JIT=0` and `=1`: demo 10/10 runs per JIT with no lost
+or missing scope task, tests 10/10.
+
+* **No speed-up is claimed for the demo.** Since aura#4717 (P4/P5) fiber bodies run in parallel on worker threads,
+  but the demo's agents share a blackboard hash and are pumped by one supervisor, so it is about orchestration
+  semantics, not throughput (2.5 s, dominated by start-up). On e6f4169e0 concurrent `hash-set!` from parallel bodies
+  is still unsafe (aura#4730) and a main-thread `fiber:yield` costs ~200 ms when a sibling is runnable (aura#4728).
+* **Agent turns are pumped by the supervisor.** `orch:agent-recv` inside an `orch:spawn-agent` body (aura#4721) and
+  in-process `orch:agent-ask` (aura#4722) are fixed upstream; the demo keeps the deterministic supervisor pump and its
+  send/recv ask/reply (`kind|from|corr|body`) so runs are reproducible. Payloads must be strings, so structured data
+  lives on a blackboard and messages carry keys.
+* `orch:supervise-batch` now uses the default watch-scope (aura#4723 fixed): it waits for the batch and reports the
+  real `partial ok=7 err=1` for the malformed record.
+* Scope tasks lost after `orch:supervise-batch` / `orch:run-workflow` (aura#4725/#4726) are **no longer recomputed or
+  executed inline**. A body that never ran is only counted and audited (`scope-task-missing`, `scope-task-lost`;
+  `.exec-lost` / `.risk-missing` in `results/demo.json`), and `tests/test_scenario.py::test_no_lost_scope_tasks` fails
+  if any appears. The standalone run-workflow probe still loses its tasks in ~2-3 of 20 runs on e6f4169e0, so #4726
+  was reopened; the demo itself saw none in 20 runs.
+* `orch:scope-cancel-all` now stops yielding bodies (aura#4724 fixed); the staged execution tasks still check the
+  `decision` flag so a rejection is also visible in the blackboard.
 * `string-split`/`filter`/`assoc` come from `std/list`, which Aura resolves relative to the current directory; the
   demo ships its own small helpers.
 
@@ -146,26 +150,33 @@ KNU-55，共 7 个节点 3 跳；每个节点一个 scope 任务；`expedite-res
 - `claim-root-cause`：预测误差分支改为 `(or forecast-bias? market-signal-mismatch?)`，原因"增加市场信号不匹配作为预测误差判定条件"。
 - `expedite-response`：medium 改为 `propose-internal-rebalance`，原因"medium风险改为优先内部再平衡，降低不必要的供应商切换"。
 - 必要的适配：访问器在 `helpers.aura` 中定义；符号风险等级映射为数值（`risk-rank`），因为 Aura 中符号不能比较大小；
-  动作以数据列表返回；增加入口函数供 `query:calls`/def-use 定位；工作区返回的符号与程序中的符号不 `eq?`，按名字比较。
+  动作以数据列表返回；增加入口函数供 `query:calls`/def-use 定位；符号比较直接用 `eq?`（#4727 已修复，按名字比较的绕行已删除）。
 
 **进化结果**：误仲裁率 0.714 → 0.0（召回 1.0 → 0.875）；索赔归因准确率 0.708 → 1.0、正确归因金额 316.1 万 → 521.0 万；
 供应商切换 34 → 6、成本 215 万 → 109.4 万、缺货不变（4）。每条策略都演示了一次"坏变更"被门禁拒绝并 `ast:restore` 回滚，
 以及语法错误的 rebind 被直接拒绝。注意：历史标签是合成数据，v2 分数偏乐观，重点在机制。
 
-**诚实说明**：Aura fiber 是协作式串行调度（#4707），不宣称任何加速；智能体回合由监督者驱动的消息泵执行（spawn-agent 体内
-recv 收不到消息、agent-ask 无法在进程内应答）；`supervise-batch` 使用 `:watch-scope #f`；scope 任务在
-`supervise-batch`/`run-workflow` 之后可能丢失，演示会检测并内联补执行且写入审计；`scope-cancel-all` 无法停止持续 yield 的任务，
-因此执行任务同时检查审批标志。
+**诚实说明**（在 Aura e6f4169e0 上验证，JIT 开/关各 10 次无丢失任务）：fiber 体自 #4717 起已真正并行，但本 demo 共享黑板、
+由监督者消息泵驱动，不宣称加速；并行 fiber 中并发 `hash-set!` 仍不安全（#4730），主线程 `fiber:yield` 约 200 ms（#4728）。
+#4721/#4722 已修复，但为保证可复现仍保留消息泵；`supervise-batch` 恢复默认 watch-scope（#4723 已修复）；scope 任务丢失
+（#4725/#4726）不再内联补执行，只计数并写入审计，测试会因丢失而失败（独立探针在 run-workflow 后仍有约 2-3/20 丢失，#4726 已重开）；
+`scope-cancel-all` 已能停止持续 yield 的任务（#4724）。
 
 ## Filed orchestration issues / 已提交的编排问题
 
-| Issue | Probe |
-|---|---|
-| [#4721](https://github.com/cybrid-systems/aura/issues/4721) spawn-agent body mailbox | probes/agent-body-mailbox.aura |
-| [#4722](https://github.com/cybrid-systems/aura/issues/4722) agent-ask in-process | probes/agent-ask-in-process.aura |
-| [#4723](https://github.com/cybrid-systems/aura/issues/4723) supervise-batch default watch-scope | probes/supervise-batch-watch-scope.aura |
-| [#4724](https://github.com/cybrid-systems/aura/issues/4724) scope-cancel-all vs yielding bodies | probes/scope-cancel-yielding.aura |
-| [#4725](https://github.com/cybrid-systems/aura/issues/4725) scope tasks lost after supervise-batch | probes/scope-lost-after-supervise-batch.aura |
-| [#4726](https://github.com/cybrid-systems/aura/issues/4726) scope tasks lost after run-workflow (intermittent) | probes/scope-lost-after-run-workflow.aura |
+Status re-checked on Aura main e6f4169e0 (2026-10-28), 20 runs per probe with `AURA_TIER_JIT=0` / `=1`:
 
-The demo works around these (inline recompute with `scope-task-missing` / `scope-task-lost` audit entries, and a hand-rolled blackboard mailbox). 本 demo 通过内联重算加审计记录绕开上述问题。
+| Issue | Probe | GitHub | probe on e6f4169e0 (J0 / J1) |
+|---|---|---|---|
+| [#4721](https://github.com/cybrid-systems/aura/issues/4721) spawn-agent body mailbox | probes/agent-body-mailbox.aura | closed | fixed (20/20, 20/20)¹ |
+| [#4722](https://github.com/cybrid-systems/aura/issues/4722) agent-ask in-process | probes/agent-ask-in-process.aura | closed | fixed (20/20 / 17/20); J1 aborts with heap corruption in ~2-15% of runs → [#4731](https://github.com/cybrid-systems/aura/issues/4731) |
+| [#4723](https://github.com/cybrid-systems/aura/issues/4723) supervise-batch default watch-scope | probes/supervise-batch-watch-scope.aura | closed | fixed (20/20, 20/20) |
+| [#4724](https://github.com/cybrid-systems/aura/issues/4724) scope-cancel-all vs yielding bodies | probes/scope-cancel-yielding.aura | closed | cancel fixed; 2/20 runs show the #4726 loss |
+| [#4725](https://github.com/cybrid-systems/aura/issues/4725) scope tasks lost after supervise-batch | probes/scope-lost-after-supervise-batch.aura | closed | fixed (20/20, 20/20) |
+| [#4726](https://github.com/cybrid-systems/aura/issues/4726) scope tasks lost after run-workflow (intermittent) | probes/scope-lost-after-run-workflow.aura | **reopened** | still 3/20 / 2/20 lost |
+| [#4727](https://github.com/cybrid-systems/aura/issues/4727) workspace symbols not `eq?` | probes/workspace-symbol-eq.aura | closed | fixed (5/5, 5/5) |
+
+¹ With parallel bodies the original probe can race (the body's non-blocking recv may run before main sends); a
+waiting variant (`agent-recv :wait #t :timeout-ms 2000`) passes 10/10.
+
+The inline-recompute and `sym=?` workarounds have been removed; lost tasks are audited, never hidden. 绕行代码已删除：丢失任务只审计、不隐藏。

@@ -52,15 +52,15 @@
 
 (define (proposal n action days shortfall)
   (let ((kind (car action)))
-    (cond ((sym=? kind 'alert-planner)
+    (cond ((eq? kind 'alert-planner)
            (hash "node" n "action" "expedite-review" "detail" "alert planner: immediate expedite review (air freight)"
                  "cost" (round (* shortfall (nget n "cost") 0.6)) "supplier" (nget n "supplier")))
-          ((sym=? kind 'suggest-alternative-supplier)
+          ((eq? kind 'suggest-alternative-supplier)
            (hash "node" n "action" "alt-supplier" "detail" (string-append "qualify alternative supplier " (nget n "alt"))
                  "cost" 45000 "supplier" (nget n "alt")))
-          ((and (sym=? kind 'propose-internal-rebalance) (= shortfall 0))
+          ((and (eq? kind 'propose-internal-rebalance) (= shortfall 0))
            (hash "node" n "action" "monitor" "detail" "rebalance not needed (covered over horizon)" "cost" 0 "supplier" (nget n "supplier")))
-          ((sym=? kind 'propose-internal-rebalance)
+          ((eq? kind 'propose-internal-rebalance)
            (hash "node" n "action" "rebalance" "detail" (format "transfer ~a units from sister plant" (min shortfall (hg sister-stock n 0)))
                  "cost" (round (* (min shortfall (hg sister-stock n 0)) 1.5)) "supplier" (nget n "supplier")))
           (else (hash "node" n "action" "monitor" "detail" "monitor coverage" "cost" 0 "supplier" (nget n "supplier"))))))
@@ -91,14 +91,11 @@
               impacted)
     (let ((j (orch:scope-join-all :timeout-ms 10000)))
       (audit! "risk" "scope-join-all" (format "~a status=~a spawned=~a" case-id (hash-ref j "status") (length impacted))))
-    ;; defensive: a scope task that never ran (seen right after a scope-cancel-all, see
-    ;; probes/) is recomputed inline so the case never silently drops a node
+    ;; a scope task that never ran is a runtime bug (aura#4725/#4726, fixed in 3162d79ff): it is
+    ;; counted and audited, never recomputed inline, and the case reports it as missing.
     (for-each (lambda (it)
-                (let ((k (string-append case-id ":cover:" (car it))))
-                  (if (bb k) #t
-                      (let ((x (if (= (caddr it) 0) (shared-extra (car it) direct) (caddr it))))
-                        (audit! "risk" "scope-task-missing" (format "~a ~a: scope body did not run; recomputed inline" case-id (car it)))
-                        (bb! k (cover-of (car it) it x))))))
+                (if (bb (string-append case-id ":cover:" (car it))) #t
+                    (audit! "risk" "scope-task-missing" (format "~a ~a: scope body did not run" case-id (car it)))))
               impacted)
     (let* ((covers (map (lambda (it) (bb (string-append case-id ":cover:" (car it)))) impacted))
            (missing (count-if (lambda (c) (not c)) covers))
@@ -120,8 +117,8 @@
                                                    (hash "id" (hash-ref ev "id") "type" (hash-ref ev "type") "part" (hash-ref ev "part")
                                                          "cause" (hash-ref ev "cause") "leak" (- (hash-ref ev "premium") (hash-ref ev "claim"))))))
                      ops-history))
-         ;; :watch-scope #f — the default watch path returns before tasks run and reports ok-count=0 (see README / issue)
-         (sb (orch:supervise-batch tasks pol :watch-scope #f))
+         ;; default watch-scope (aura#4723 fixed in e6f4169e0: waits for the batch, real ok/err counts)
+         (sb (orch:supervise-batch tasks pol))
          (rows (keep (lambda (x) x) (map (lambda (ev) (bb (string-append key (hash-ref ev "id")))) ops-history)))
          (causes (foldl (lambda (acc r) (if (mem? (hash-ref r "cause") acc) acc (append acc (list (hash-ref r "cause"))))) (list) rows))
          (chains (map (lambda (c) (let ((rs (keep (lambda (r) (string=? (hash-ref r "cause") c)) rows)))
@@ -148,10 +145,10 @@
   (let* ((case-id (hash-ref m "body"))
          (fx (bb (string-append case-id ":forensics")))
          (cls (classify-all claim-history))
-         (n-sup (count-if (lambda (p) (sym=? (cdr p) 'supplier-delay)) cls))
-         (n-dem (count-if (lambda (p) (sym=? (cdr p) 'demand-forecast-error)) cls))
-         (n-unk (count-if (lambda (p) (sym=? (cdr p) 'unknown)) cls))
-         (recover (sum-by (lambda (p) (if (sym=? (cdr p) 'supplier-delay) (hash-ref (car p) "amount") 0)) cls))
+         (n-sup (count-if (lambda (p) (eq? (cdr p) 'supplier-delay)) cls))
+         (n-dem (count-if (lambda (p) (eq? (cdr p) 'demand-forecast-error)) cls))
+         (n-unk (count-if (lambda (p) (eq? (cdr p) 'unknown)) cls))
+         (recover (sum-by (lambda (p) (if (eq? (cdr p) 'supplier-delay) (hash-ref (car p) "amount") 0)) cls))
          (sup-chain (keep (lambda (c) (> (length (keep (lambda (x) #t) (hash-ref c "events"))) 0)) (hash-ref fx "chains")))
          (evid (sum-by (lambda (c) (if (string=? (hash-ref c "cause") "SUP-T2-C lead-time miss") (hash-ref c "leak") 0)) sup-chain))
          (rules (append

@@ -43,7 +43,7 @@ def evolution_table(r):
 
 
 def markdown(r, secs):
-    L = ["# aura-scm-agents demo results", "", f"wall time: {secs:.1f}s (deterministic; fibers are serialized, see README)", ""]
+    L = ["# aura-scm-agents demo results", "", f"wall time: {secs:.1f}s (deterministic; agents are pumped by one supervisor, see README)", ""]
     for case in ("CASE-1", "CASE-2", "CASE-3"):
         P = f"pkg.{case}"
         if f"{P}.decision" not in r:
@@ -53,7 +53,7 @@ def markdown(r, secs):
               f"- impacted nodes {r.get(P + '.impacted')} (max hop {r.get(P + '.max-hop')}), plan cost {r.get(P + '.plan-cost')}, expedites {r.get(P + '.expedites')}",
               f"- forensics batch {r.get(P + '.forensics-batch')}, total leakage {r.get(P + '.total-leak')}",
               f"- claims {r.get(P + '.claims')}, recovery opportunity {r.get(P + '.recovery-opportunity')}",
-              f"- execution: done {r.get(P + '.exec-done')}, lost-and-recovered {r.get(P + '.exec-lost-recovered')}, cancel {r.get(P + '.cancel')}", "",
+              f"- execution: done {r.get(P + '.exec-done')}, lost {r.get(P + '.exec-lost')}, risk scope tasks missing {r.get(P + '.risk-missing')}, cancel {r.get(P + '.cancel')}", "",
               "| node | action | detail | cost |", "|---|---|---|---|"]
         for a in r.get(P + ".action", []):
             L.append("| " + " | ".join(a.split("|")) + " |")
