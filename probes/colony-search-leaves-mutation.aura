@@ -1,0 +1,8 @@
+;; std/ant colony:search with no match: leaves the last lit-tweak installed (here in g, not f), and tries 10 variants for max-variants 6
+(require "std/ant")
+(define src0 "(define (f x) (display (+ x 40)))\n(define (g y) (* y 7))")
+(set-code src0) (eval-current)
+(define r (colony:search "999" 6))
+(display (list 'result r)) (newline)
+(display (list 'workspace-unchanged (string=? (current-source :workspace) src0))) (newline)
+(display (list 'workspace-now (current-source :workspace))) (newline)

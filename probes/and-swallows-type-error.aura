@@ -1,0 +1,9 @@
+;; a primitive error in a NON-last `and` operand is printed to stderr but treated as truthy
+(define (show t v) (display (list t v)) (newline))
+(show 'and-first (try (and (> 5 "1") 'reached) (catch (e) 'raised)))   ; got reached, expect raised
+(show 'and-last (try (and #t (> 5 "1")) (catch (e) 'raised)))
+(show 'or-first (try (or (> 5 "1") 'reached) (catch (e) 'raised)))
+(show 'if-test (try (if (> 5 "1") 'then 'else) (catch (e) 'raised)))
+(show 'cond-test (try (cond ((> 5 "1") 'then) (else 'else)) (catch (e) 'raised)))
+(show 'unbound-in-and (try (and (no-such-fn 1) 'reached) (catch (e) 'raised)))
+(show 'car-in-and (try (and (car 5) 'reached) (catch (e) 'raised)))     ; got reached, expect raised

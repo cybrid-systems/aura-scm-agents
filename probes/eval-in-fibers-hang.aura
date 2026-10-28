@@ -1,0 +1,3 @@
+;; string `eval` in 4 parallel fiber bodies: hangs after a few waves (expect "DONE")
+(define (job i) (procedure? (eval "(lambda (a b) (+ a b))")))
+(let loop ((w 0)) (if (< w 200) (begin (map fiber:join (map (lambda (i) (fiber:spawn (lambda () (job i)))) (list 0 1 2 3))) (display w) (display " ") (loop (+ w 1))) (begin (display "DONE") (newline))))

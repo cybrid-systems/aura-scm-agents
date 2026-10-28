@@ -1,0 +1,9 @@
+;; Entry for the swarm "automatic evolution" demo: scripts/run_search.py builds
+;; MODULES + aura/search.aura + this file and runs it once per fiber count.
+(run-search)
+(commit-policy! 0)
+(commit-policy! 1)
+(commit-policy! 2)
+(emit-mutation-log)
+(dump-audit "trail")
+(emit "done" "ok")

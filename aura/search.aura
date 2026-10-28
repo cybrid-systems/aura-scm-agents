@@ -1,0 +1,540 @@
+;; Fiber-parallel population search over the three EDSL policies ("automatic evolution").
+;;
+;; - PSO (std/pso) tunes the continuous knobs of each policy on its v1 structure.
+;; - ACO (std/ant pheromone trails, colony:search-style structural operators) searches
+;;   structural variants: add/drop conditions, swap branches, swap actions.
+;; - Every individual is evaluated in its OWN fiber: the candidate is compiled privately
+;;   (eval of a lambda; the shared workspace AST is never touched), held in a per-fiber
+;;   COW overlay (fiber:overlay-begin/define/get/rollback, #4715), gated (balanced parse,
+;;   procedure, smoke type/shape check on sample rows) and scored on the mock history.
+;;   The fiber then DISCARDS its overlay and reports one string message to the
+;;   coordinator over a channel. Only the coordinator mutates shared state (pheromone,
+;;   PSO fitness table, global best, Pareto front, provenance) -> no shared-mutation races.
+;; - All randomness lives in the coordinator (seeded), and messages are re-ordered by
+;;   candidate id before they are applied, so results are identical for every fiber count.
+;; - COMMIT is a separate, single-writer step: the best candidate per policy goes through
+;;   mutate:rebind (reason recorded) -> eval-current -> business gate vs. v1, with
+;;   ast:snapshot / ast:restore rollback. Rollback is exercised and verified on purpose.
+
+(require "std/pso" all:)
+(require "std/ant" all:)
+
+;; ---------------------------------------------------------------- knobs
+(define (env-num k d) (let ((v (getenv k))) (if (and (string? v) (> (string-length v) 0)) (string->number v) d)))
+(define SEARCH-N (env-num "SCM_SEARCH_N" 8))          ; 0 = serial (no fibers), else fibers per wave
+(define SEARCH-SEED (env-num "SCM_SEARCH_SEED" 20261028))
+(define PSO-POP (env-num "SCM_PSO_POP" 16))
+(define PSO-GENS (env-num "SCM_PSO_GENS" 10))
+(define STAGES (let ((v (getenv "SCM_STAGES"))) (split-on (if (and (string? v) (> (string-length v) 0)) v "aco,pso,aco") ",")))
+(define ACO-ANTS (env-num "SCM_ACO_ANTS" 16))
+(define ACO-ITERS (env-num "SCM_ACO_ITERS" 8))
+(define EVAL-REPS (env-num "SCM_EVAL_REPS" 20))       ; back-test passes per evaluation (work amplifier)
+(define NOISE-P (env-num "SCM_NOISE_P" 0.10))         ; share of candidates with an injected defect
+
+;; ---------------------------------------------------------------- coordinator RNG (seeded)
+(define SR SEARCH-SEED)
+(define (sr!) (set! SR (modulo (+ (* SR 1103515245) 12345) 2147483647)) SR)
+(define (sr-float!) (/ (* 1.0 (sr!)) 2147483647.0))
+(define (sr-int! n) (if (<= n 1) 0 (modulo (sr!) n)))
+
+;; ---------------------------------------------------------------- small helpers
+(define (take-n xs n) (if (or (null? xs) (<= n 0)) (list) (cons (car xs) (take-n (cdr xs) (- n 1)))))
+(define (drop-n xs n) (if (or (null? xs) (<= n 0)) xs (drop-n (cdr xs) (- n 1))))
+(define (nth xs i) (if (= i 0) (car xs) (nth (cdr xs) (- i 1))))
+(define (index-of x xs) (let loop ((ys xs) (i 0)) (cond ((null? ys) -1) ((equal? x (car ys)) i) (else (loop (cdr ys) (+ i 1))))))
+(define (callp f . args) (apply f args))
+;; fixed-arity callers: rest-args lists are built wrongly in parallel fiber bodies on e6f
+;; (probes/rest-args-in-fibers.aura), so nothing on the worker path may be variadic.
+(define (call0 f) (f)) (define (call1 f a) (f a)) (define (call2 f a b) (f a b)) (define (call3 f a b c) (f a b c))
+(define (r4 x) (/ (round (* x 10000.0)) 10000.0))
+(define (join-with sep xs) (if (null? xs) "" (foldl (lambda (acc x) (string-append acc sep x)) (str (car xs)) (map str (cdr xs)))))
+(define (balanced? s)
+  ;; the parse gate does this itself: (eval "(lambda (a) (f a)") returns a procedure (see probes/eval-unbalanced.aura)
+  (let ((n (string-length s)))
+    (let loop ((i 0) (d 0) (in-str #f))
+      (if (= i n) (and (= d 0) (not in-str))
+          (let ((c (string-ref s i)))
+            (cond (in-str (loop (+ i 1) d (not (= c 34))))
+                  ((= c 34) (loop (+ i 1) d #t))
+                  ((= c 40) (loop (+ i 1) (+ d 1) #f))
+                  ((= c 41) (if (= d 0) #f (loop (+ i 1) (- d 1) #f)))
+                  (else (loop (+ i 1) d #f))))))))
+
+;; ---------------------------------------------------------------- injected defects
+;; A share of candidates carries one defect, standing in for broken LLM/operator output:
+;; unbound helper, string literal where a number is expected, wrong result shape, or a
+;; dropped closing paren. The gate must reject all of them.
+(define NOISE "none")
+(define NOISE-KINDS (list "unbound" "type" "shape" "paren"))
+(define (nz-fn name) (if (string=? NOISE "unbound") (string-append name "-typo") name))
+(define (nz-num x) (if (string=? NOISE "type") (string-append "\"" (number->string x) "\"") (number->string x)))
+
+;; ---------------------------------------------------------------- source templates
+;; should-arbitrate?: cont (pct exposure conf); choices (use-pct use-exposure use-frozen use-conf)
+(define (sa-src cont ch)
+  (let* ((conds (append
+                  (if (string=? (nth ch 0) "on") (list (format "(> (abs (~a edi-change)) ~a)" (nz-fn "change-pct") (nz-num (r4 (nth cont 0))))) (list))
+                  (if (string=? (nth ch 1) "on") (list (format "(> inventory-exposure ~a)" (nz-num (round (nth cont 1))))) (list))
+                  (if (string=? (nth ch 2) "on") (list "(not (frozen-horizon? edi-change))") (list))
+                  (if (string=? (nth ch 3) "on") (list (format "(>= (hash-ref edi-change \"confidence\") ~a)" (r4 (nth cont 2)))) (list))))
+         (body (if (null? conds) "#f" (string-append "(and " (join-with " " conds) ")")))
+         (body2 (if (string=? NOISE "shape") (string-append "(if " body " 'yes 'no)") body)))
+    (string-append "(define (should-arbitrate? edi-change inventory-exposure) " body2 ")")))
+
+;; claim-root-cause: cont (bias-threshold); choices (order supplier-cond demand-cond default)
+(define (cr-sup c) (if (string=? c "edi-and-lead") (format "(and (~a expedite-event) (supplier-lead-time-miss? expedite-event))" (nz-fn "edi-increase?")) "(supplier-lead-time-miss? expedite-event)"))
+(define (cr-dem c t)
+  (let ((ba (format "(and (forecast-bias? expedite-event) (> (bias-amount expedite-event) ~a))" (nz-num (r4 t)))))
+    (cond ((string=? c "bias-amt") ba)
+          ((string=? c "bias") "(forecast-bias? expedite-event)")
+          ((string=? c "bias-or-mkt") "(or (forecast-bias? expedite-event) (market-signal-mismatch? expedite-event))")
+          ((string=? c "bias-amt-or-mkt") (string-append "(or " ba " (market-signal-mismatch? expedite-event))"))
+          (else "(or (forecast-bias? expedite-event) (market-signal-mismatch? expedite-event) (edi-increase? expedite-event))"))))
+(define (cr-src cont ch)
+  (let* ((sup (format "(~a 'supplier-delay)" (cr-sup (nth ch 1))))
+         (dem (format "(~a 'demand-forecast-error)" (cr-dem (nth ch 2) (nth cont 0))))
+         (dflt (if (string=? NOISE "shape") "\"unknown\"" (string-append "'" (nth ch 3))))
+         (branches (if (string=? (nth ch 0) "sup-first") (string-append sup " " dem) (string-append dem " " sup))))
+    (format "(define (claim-root-cause expedite-event) (cond ~a (else ~a)))" branches dflt)))
+
+;; expedite-response: cont (high-days-cutoff); choices (high-action medium-action low-action)
+(define (er-act a)
+  (cond ((string=? NOISE "shape") "'monitor")
+        ((string=? a "alert") "(list 'alert-planner 'immediate-expedite-review)")
+        ((string=? a "alt") "(list 'suggest-alternative-supplier)")
+        ((string=? a "rebalance") "(list 'propose-internal-rebalance)")
+        (else "(list 'monitor)")))
+(define (er-src cont ch)
+  (format "(define (expedite-response risk-level inventory-days) (cond ((and (>= (~a risk-level) (risk-rank 'high)) (< inventory-days ~a)) ~a) ((>= (risk-rank risk-level) (risk-rank 'medium)) ~a) (else ~a)))"
+          (nz-fn "risk-rank") (nz-num (r4 (nth cont 0))) (er-act (nth ch 0)) (er-act (nth ch 1)) (er-act (nth ch 2))))
+
+;; define-source -> lambda-source (private compile inside the fiber; the workspace is untouched)
+(define (define->lambda src)
+  ;; "(define (NAME a b) BODY)" -> "(lambda (a b) BODY)"
+  (let* ((open (string-index src "(" 1)) (sp (string-index src " " open)))
+    (string-append "(lambda (" (substring src (+ sp 1) (string-length src)))))
+
+;; ---------------------------------------------------------------- metrics with a candidate closure
+;; Same definitions as aura/evolve.aura (m-arbitration / m-claims / m-expedite), but over a
+;; private closure instead of the workspace binding.
+(define (mf-arb f)
+  (let* ((rows (map (lambda (e) (cons e (call2 f e (hash-ref e "exposure")))) edi-history))
+         (flagged (count-if cdr rows))
+         (needed (count-if (lambda (r) (hash-ref (car r) "needed")) rows))
+         (tp (count-if (lambda (r) (and (cdr r) (hash-ref (car r) "needed"))) rows))
+         (fp (- flagged tp)))
+    (list flagged fp (ratio fp flagged) (ratio tp needed))))
+(define (mf-claims f)
+  (let* ((rows (map (lambda (c) (cons c (call1 f c))) claim-history))
+         (ok (count-if (lambda (r) (eq? (cdr r) (hash-ref (car r) "truth"))) rows))
+         (recovered (sum-by (lambda (r) (if (and (eq? (cdr r) (hash-ref (car r) "truth")) (not (eq? (cdr r) 'unknown))) (hash-ref (car r) "amount") 0)) rows))
+         (total (sum-by (lambda (r) (if (eq? (hash-ref (car r) "truth") 'unknown) 0 (hash-ref (car r) "amount"))) rows)))
+    (list (ratio ok (length rows)) (count-if (lambda (r) (eq? (cdr r) 'unknown)) rows) recovered (ratio recovered total))))
+(define (mf-exp f)
+  (let loop ((rs risk-history) (exp 0) (sw 0) (reb 0) (so 0) (cost 0))
+    (if (null? rs)
+        (list exp sw reb so cost)
+        (let* ((r (car rs)) (a (car (call2 f (hash-ref r "level") (hash-ref r "days"))))
+               (late (< (hash-ref r "days") (hash-ref r "lead"))))
+          (cond ((eq? a 'alert-planner) (loop (cdr rs) (+ exp 1) sw reb so (+ cost 20000)))
+                ((eq? a 'suggest-alternative-supplier) (loop (cdr rs) exp (+ sw 1) reb so (+ cost 45000)))
+                ((eq? a 'propose-internal-rebalance)
+                 (if (hash-ref r "rebalance-ok")
+                     (loop (cdr rs) exp sw (+ reb 1) so (+ cost 6000))
+                     (loop (cdr rs) exp (+ sw 1) (+ reb 1) so (+ cost 6000 45000))))
+                (else (if late (loop (cdr rs) exp sw reb (+ so 1) (+ cost 150000)) (loop (cdr rs) exp sw reb so cost))))))))
+
+;; workspace metrics as lists in the same order (used by the single-writer commit step)
+(define (mw-arb) (let ((m (m-arbitration))) (list (hash-ref m "arbitrations") (hash-ref m "false-arbitrations") (hash-ref m "false-arbitration-rate") (hash-ref m "recall"))))
+(define (mw-claims) (let ((m (m-claims))) (list (hash-ref m "accuracy") (hash-ref m "unknown") (hash-ref m "recovered") (hash-ref m "recovery-rate"))))
+(define (mw-exp) (let ((m (m-expedite))) (list (hash-ref m "expedites") (hash-ref m "supplier-switches") (hash-ref m "rebalances") (hash-ref m "stockouts") (hash-ref m "cost"))))
+
+;; ---------------------------------------------------------------- smoke type/shape gate
+(define (sym-in? x names) (and (symbol? x) (mem? (format "~a" x) names)))
+;; the gate checks the output type/shape on EVERY back-test row (a defect in a rarely taken
+;; branch, e.g. a string default, slips past a one-row smoke test)
+(define (all-ok? pred rows) (if (null? rows) #t (if (pred (car rows)) (all-ok? pred (cdr rows)) #f)))
+(define (smoke-arb f) (all-ok? (lambda (e) (boolean? (call2 f e (hash-ref e "exposure")))) edi-history))
+(define (smoke-claims f) (all-ok? (lambda (c) (sym-in? (call1 f c) (list "supplier-delay" "demand-forecast-error" "unknown"))) claim-history))
+(define (smoke-exp f)
+  (all-ok? (lambda (h) (let ((r (call2 f (hash-ref h "level") (hash-ref h "days"))))
+                         (and (pair? r) (sym-in? (car r) (list "alert-planner" "suggest-alternative-supplier" "propose-internal-rebalance" "monitor")))))
+           risk-history))
+
+;; ---------------------------------------------------------------- scalarized fitness (higher is better)
+;; arbitration: recall - false-alarm rate, recall below 0.8 (the business gate) costs 1.0
+;; claims: accuracy + recovery rate
+;; expedite: -(cost in M) - 0.1 * stockouts
+(define (fit-arb m) (- (- (nth m 3) (nth m 2)) (if (< (nth m 3) 0.8) 1.0 0.0)))
+(define (fit-claims m) (+ (nth m 0) (nth m 3)))
+(define (fit-exp m) (- 0.0 (/ (nth m 4) 1000000.0) (* 0.1 (nth m 3))))
+;; Pareto objectives (all maximized)
+(define (obj-arb m) (list (nth m 3) (- 0.0 (nth m 2))))
+(define (obj-claims m) (list (nth m 0) (nth m 2)))
+(define (obj-exp m) (list (- 0.0 (nth m 4)) (- 0.0 (nth m 3)) (- 0.0 (nth m 1))))
+
+;; ---------------------------------------------------------------- the three policy specs
+;; (name gen-src metric-f metric-ws smoke fitness objectives metric-names pso-bounds v1-cont v1-choices v2-cont v2-choices decisions)
+(define POLICIES
+  (list
+    (list "should-arbitrate?" sa-src mf-arb mw-arb smoke-arb fit-arb obj-arb
+          (list "arbitrations" "false-arbitrations" "false-arbitration-rate" "recall")
+          (list (list 0.05 0.5) (list 100000.0 1600000.0) (list 0.0 1.0))
+          (list 0.15 500000.0 0.7) (list "on" "on" "on" "off")
+          (list 0.22 800000.0 0.7) (list "on" "on" "on" "on")
+          (list (list "use-pct" (list "on" "off")) (list "use-exposure" (list "on" "off"))
+                (list "use-frozen" (list "on" "off")) (list "use-conf" (list "on" "off"))))
+    (list "claim-root-cause" cr-src mf-claims mw-claims smoke-claims fit-claims obj-claims
+          (list "accuracy" "unknown" "recovered" "recovery-rate")
+          (list (list 0.0 0.5))
+          (list 0.1) (list "sup-first" "edi-and-lead" "bias-amt" "unknown")
+          (list 0.1) (list "sup-first" "edi-and-lead" "bias-or-mkt" "unknown")
+          (list (list "order" (list "sup-first" "dem-first")) (list "supplier-cond" (list "edi-and-lead" "lead-only"))
+                (list "demand-cond" (list "bias-amt" "bias" "bias-or-mkt" "bias-amt-or-mkt" "bias-or-mkt-or-edi"))
+                (list "default" (list "unknown" "supplier-delay" "demand-forecast-error"))))
+    (list "expedite-response" er-src mf-exp mw-exp smoke-exp fit-exp obj-exp
+          (list "expedites" "supplier-switches" "rebalances" "stockouts" "cost")
+          (list (list 1.0 15.0))
+          (list 5.0) (list "alert" "alt" "monitor")
+          (list 5.0) (list "alert" "rebalance" "monitor")
+          (list (list "high-action" (list "alert" "rebalance" "alt")) (list "medium-action" (list "alt" "rebalance" "monitor" "alert"))
+                (list "low-action" (list "monitor" "rebalance"))))))
+(define (p-name p) (nth p 0)) (define (p-gen p) (nth p 1)) (define (p-mf p) (nth p 2)) (define (p-mw p) (nth p 3))
+(define (p-smoke p) (nth p 4)) (define (p-fit p) (nth p 5)) (define (p-obj p) (nth p 6)) (define (p-mnames p) (nth p 7))
+(define (p-bounds p) (nth p 8)) (define (p-v1c p) (nth p 9)) (define (p-v1s p) (nth p 10)) (define (p-v2c p) (nth p 11))
+(define (p-v2s p) (nth p 12)) (define (p-dec p) (nth p 13))
+(define (policy-by-name n) (let loop ((ps POLICIES)) (if (string=? (p-name (car ps)) n) (car ps) (loop (cdr ps)))))
+
+;; ---------------------------------------------------------------- worker: one individual, one fiber
+;; Returns one string message "id|gate|reason|fitness|m1,m2,..|eval-ms|overlay-pending".
+(define (quoted-number? src)
+  (let loop ((cs (string->list src)) (prev #\space))
+    (cond ((null? cs) #f)
+          ((and (char=? prev #\") (char-numeric? (car cs))) #t)
+          (else (loop (cdr cs) (car cs))))))
+(define (compile-candidate src)
+  ;; parse gate + private compile.  Runs on the coordinator: string `eval` inside parallel
+  ;; fiber bodies deadlocks intermittently on e6f (see probes/eval-in-fibers-hang.aura), so
+  ;; workers only receive already-compiled closures.  The workspace AST is never touched.
+  (cond ((not (balanced? src)) (list "reject" "parse"))   ; `eval` is lenient about parens
+        ;; static literal-type lint: a type error inside a non-last `and` operand is swallowed
+        ;; at runtime (probes/and-swallows-type-error.aura), so a "0.17" string can pass smoke
+        ((quoted-number? src) (list "reject" "type-lint"))
+        (else (let ((f0 (try (eval (define->lambda src)) (catch (e) #f))))
+                (if (procedure? f0) (list "ok" f0) (list "reject" "parse"))))))
+
+(define (clean-err e) (list->string (map (lambda (c) (if (or (char=? c #\|) (char=? c #\newline)) #\/ c)) (string->list (format "~a" e)))))
+(define (eval-candidate p id src pre)   ; pre: precompiled (compile-candidate src) or #f
+  ;; worker body: per-fiber COW overlay (#4715) holds the candidate; smoke type/shape gate;
+  ;; EVAL-REPS back-test runs; always rolled back.  Returns one pipe-delimited message.
+  (let* ((t0 (monotonic-ms))
+         (cc (if pre pre (compile-candidate src)))
+         (slot (string-append "cand:" (p-name p) ":" (number->string id)))
+         (_b (fiber:overlay-begin))
+         (res
+           (try
+             (if (not (string=? (car cc) "ok")) (list "reject" (nth cc 1) 0 (list))
+                 (begin
+                   (fiber:overlay-define slot (nth cc 1))          ; private, never committed
+                   (let ((f (fiber:overlay-get slot #f)))
+                     (if (not (try (call1 (p-smoke p) f) (catch (e) #f)))
+                         (list "reject" "type" 0 (list))
+                         (let loop ((k 1) (m (call1 (p-mf p) f)))
+                           (if (>= k EVAL-REPS)
+                               (list "pass" "ok" (call1 (p-fit p) m) m)
+                               (loop (+ k 1) (call1 (p-mf p) f))))))))
+             (catch (e) (list "reject" "runtime" 0 (list) (clean-err e)))))
+         (pending (fiber:overlay-pending))
+         (_r (fiber:overlay-rollback)))
+    (format "~a|~a|~a|~a|~a|~a|~a|~a" id (nth res 0) (nth res 1) (nth res 2) (join-with "," (nth res 3)) (- (monotonic-ms) t0) pending
+            (if (> (length res) 4) (nth res 4) ""))))
+
+;; ---------------------------------------------------------------- coordinator state (single writer)
+(define RCH (channel:create 256))
+(define CANDS (hash))        ; id -> (policy stage cont choices noise src)
+(define SRC-CACHE (hash))    ; src -> fitness (ACO dedupe)
+(define NEXT-ID 0)
+(define EVALS 0)
+(define CACHE-HITS 0)
+(define REJECTS (hash "parse" 0 "type" 0 "type-lint" 0 "runtime" 0))
+(define NOISY 0)
+(define NOISY-REJECTED 0)
+(define CLEAN-REJECTED 0)
+(define BEST (hash))         ; policy -> (fit id metrics evals-at)
+(define FRONT (hash))        ; policy -> list of (objs id fit)
+(define V2FIT (hash))        ; policy -> fitness of template-v2 (for evals-to-v2)
+(define REACHED-V2 (hash))   ; policy -> eval counter when fitness >= v2 first
+(define PEVALS (hash))       ; policy -> evals
+(define MAX-PENDING 0)
+(define (hinc! h k d) (hash-set! h k (+ (hg h k 0) d)))
+
+(define (new-cand! p stage cont choices noise)
+  (set! NEXT-ID (+ NEXT-ID 1))
+  (set! NOISE noise)
+  (let ((src (call2 (p-gen p) cont choices)))
+    (set! NOISE "none")
+    (let* ((clean (call2 (p-gen p) cont choices))
+           (src2 (if (string=? noise "paren") (substring src 0 (- (string-length src) 1)) src))
+           ;; a defect aimed at a condition the ant dropped leaves the source clean: count it as none
+           (noise2 (if (and (not (string=? noise "none")) (string=? src2 clean)) "none" noise)))
+      (hash-set! CANDS NEXT-ID (list (p-name p) stage cont choices noise2 src2))
+      NEXT-ID)))
+(define (pick-noise!) (if (< (sr-float!) NOISE-P) (nth NOISE-KINDS (sr-int! (length NOISE-KINDS))) "none"))
+
+(define (dominates? a b) ; a >= b everywhere and > somewhere
+  (and (foldl (lambda (acc x) (and acc x)) #t (map (lambda (x y) (>= x y)) a b))
+       (foldl (lambda (acc x) (or acc x)) #f (map (lambda (x y) (> x y)) a b))))
+(define (front-add! pol objs id fit ms)
+  (let ((fr (hg FRONT pol (list))))
+    (if (or (foldl (lambda (acc e) (or acc (dominates? (car e) objs))) #f fr)
+            (foldl (lambda (acc e) (or acc (equal? (car e) objs))) #f fr))
+        #f
+        (hash-set! FRONT pol (cons (list objs id fit ms) (keep (lambda (e) (not (dominates? objs (car e)))) fr))))))
+
+(define (apply-msg! msg)
+  (let* ((parts (split-on msg "|"))
+         (id (string->number (nth parts 0))) (gate (nth parts 1)) (reason (nth parts 2))
+         (fit (string->number (nth parts 3)))
+         (ms (if (string=? (nth parts 4) "") (list) (map string->number (split-on (nth parts 4) ","))))
+         (ems (nth parts 5)) (pend (string->number (nth parts 6))) (err (if (> (length parts) 7) (nth parts 7) ""))
+         (c (hash-ref CANDS id)) (pol (nth c 0)) (p (policy-by-name pol)) (noise (nth c 4)))
+    (set! EVALS (+ EVALS 1))
+    (hinc! PEVALS pol 1)
+    (if (> pend MAX-PENDING) (set! MAX-PENDING pend) #f)
+    (if (string=? noise "none") #f (set! NOISY (+ NOISY 1)))
+    (if (string=? gate "pass")
+        (begin
+          (hash-set! SRC-CACHE (nth c 5) fit)
+          (if (or (not (hash-has-key? BEST pol)) (> fit (car (hash-ref BEST pol))))
+              (hash-set! BEST pol (list fit id ms EVALS)) #f)
+          (if (and (hash-has-key? V2FIT pol) (not (hash-has-key? REACHED-V2 pol)) (>= fit (hash-ref V2FIT pol)))
+              (hash-set! REACHED-V2 pol EVALS) #f)
+          (front-add! pol (call1 (p-obj p) ms) id fit ms))
+        (begin
+          (hash-set! SRC-CACHE (nth c 5) -1000.0)
+          (hinc! REJECTS reason 1)
+          (if (string=? noise "none") (set! CLEAN-REJECTED (+ CLEAN-REJECTED 1)) (set! NOISY-REJECTED (+ NOISY-REJECTED 1)))))
+    ;; provenance: every attempt
+    (emit "prov" (format "~a|~a|~a|~a|~a|~a|~a|~a|~a|~a|~a|~a" id pol (nth c 1) (join-with ";" (map (lambda (x) (r4 x)) (nth c 2)))
+                         (join-with ";" (nth c 3)) noise gate reason (r4 fit) (join-with ";" ms) ems err))
+    (list id gate fit)))
+
+;; evaluate a batch: serial (N=0) or waves of N fibers; messages applied in id order
+(define (msg-id m) (string->number (car (split-on m "|"))))
+(define (run-batch ids)
+  (let ((msgs
+          (if (= SEARCH-N 0)
+              (map (lambda (id) (let ((c (hash-ref CANDS id))) (eval-candidate (policy-by-name (nth c 0)) id (nth c 5) #f))) ids)
+              (let loop ((rest ids) (acc (list)))
+                (if (null? rest) acc
+                    (let* ((wave (take-n rest SEARCH-N))
+                           ;; compile on the coordinator (serial), score in parallel fibers
+                           (ccs (map (lambda (id) (compile-candidate (nth (hash-ref CANDS id) 5))) wave))
+                           (fids (map (lambda (id cc)
+                                        (let* ((c (hash-ref CANDS id)) (p (policy-by-name (nth c 0))) (src (nth c 5)))
+                                          (fiber:spawn (lambda ()
+                                                         ;; never leave the coordinator blocked in channel:recv
+                                                         (channel:send RCH (try (eval-candidate p id src cc)
+                                                                                (catch (e) (format "~a|reject|runtime|0||0|0|worker:~a" id (clean-err e)))))
+                                                         id))))
+                                      wave ccs))
+                           (got (map (lambda (x) (channel:recv RCH)) wave)))
+                      (for-each (lambda (f) (fiber:join f)) fids)
+                      (loop (drop-n rest SEARCH-N) (append acc got))))))))
+    (map apply-msg! (list-sort (lambda (a b) (< (msg-id a) (msg-id b))) msgs))))
+
+;; ---------------------------------------------------------------- PSO stage (continuous knobs)
+(define (gkey ind) (format "~a" ind))
+(define (pso-stage! p) (pso-stage-with! p "pso" (p-v1s p) PSO-GENS))
+;; alternating round: PSO again on the structure ACO picked (thresholds and structure interact,
+;; e.g. the confidence cut only matters once ACO switches use-conf on)
+(define (pso-stage-with! p stage choices gens)
+  (pso:init-hash (hash "dim" (length (p-bounds p)) "pop" PSO-POP "bounds" (p-bounds p) "seed" SEARCH-SEED))
+  (let loop ((g 0))
+    (if (>= g gens)
+        (pso:best)
+        (let* ((inds (pso:population))
+               (ids (map (lambda (ind) (new-cand! p stage ind choices (pick-noise!))) inds))
+               (recs (run-batch ids))
+               (fit (hash)))
+          (for-each (lambda (ind r) (hash-set! fit (gkey ind) (if (string=? (nth r 1) "pass") (nth r 2) -1000.0))) inds recs)
+          (pso:step! (lambda (ind) (hg fit (gkey ind) -1000.0)))
+          (loop (+ g 1))))))
+
+;; ---------------------------------------------------------------- ACO stage (structure)
+;; Trails live in std/ant's pheromone table, one trail per (policy, decision, option).
+(define (trail p d o) (string-append (p-name p) "/" d "=" o))
+(define (sample-option! p dec)
+  (let* ((opts (cadr dec)) (ws (map (lambda (o) (pheromone:score (trail p (car dec) o))) opts))
+         (tot (foldl + 0.0 ws)) (r (* (sr-float!) tot)))
+    (let loop ((os opts) (ws ws) (acc 0.0))
+      (if (null? (cdr os)) (car os)
+          (if (< r (+ acc (car ws))) (car os) (loop (cdr os) (cdr ws) (+ acc (car ws))))))))
+(define (deposit! p choices amount)
+  (for-each (lambda (dec o) (pheromone:update (trail p (car dec) o) amount)) (p-dec p) choices))
+(define (aco-stage! p cont)
+  (for-each (lambda (dec) (for-each (lambda (o) (pheromone:update (trail p (car dec) o) 1.0)) (cadr dec))) (p-dec p))
+  (let loop ((it 0) (gbest #f))
+    (if (>= it ACO-ITERS) gbest
+        (let* ((ants (map (lambda (k) (map (lambda (dec) (sample-option! p dec)) (p-dec p))) (iota ACO-ANTS)))
+               (ids (map (lambda (ch) (new-cand! p "aco" cont ch (pick-noise!))) ants))
+               ;; dedupe: identical source already scored -> reuse (cache hit, no fiber)
+               (todo (keep (lambda (id) (not (hash-has-key? SRC-CACHE (nth (hash-ref CANDS id) 5)))) ids))
+               (_ (set! CACHE-HITS (+ CACHE-HITS (- (length ids) (length todo)))))
+               (_2 (run-batch todo))
+               (scored (map (lambda (id ch) (list (hg SRC-CACHE (nth (hash-ref CANDS id) 5) -1000.0) ch)) ids ants))
+               (ranked (list-sort (lambda (a b) (> (car a) (car b))) scored))
+               (gb (if (or (not gbest) (> (car (car ranked)) (car gbest))) (car ranked) gbest)))
+          (pheromone:evaporate! 0.9)
+          (deposit! p (cadr (car ranked)) 1.0)
+          (if (pair? (cdr ranked)) (deposit! p (cadr (cadr ranked)) 0.5) #f)
+          (deposit! p (cadr gb) 0.5)
+          (loop (+ it 1) gb)))))
+
+;; ---------------------------------------------------------------- single-writer commit with rollback
+(define (ws-src) (let* ((t0 (monotonic-ms)) (r (current-source :workspace))) (if (string? (getenv "SCM_TRACE")) (begin (display (string-append "@@tws=" (number->string (- (monotonic-ms) t0)))) (newline)) #f) r))
+(define TRACE (string? (getenv "SCM_TRACE")))
+(define (tr x) (if TRACE (begin (display (string-append "@@trace=" (number->string (monotonic-ms)) " " x)) (newline)) #f))
+(define (commit-one! p best-id worst-id)
+  (let* ((pol (p-name p)) (c (hash-ref CANDS best-id)) (src (nth c 5))
+         (fiber-m (nth (hash-ref BEST pol) 2))
+         (_tr (tr "s0")) (s0 (ast:snapshot)) (src0 (ws-src)) (m0 (call0 (p-mw p)))
+         ;; v2 from the policy FILE (template fidelity check), then back to v1
+         (_tr (tr "_v2")) (_v2 (begin (mutate:rebind pol (policy-src pol "v2") "measure hand-written v2 (search baseline)") (eval-current)))
+         (_tr (tr "mv2")) (mv2 (call0 (p-mw p)))
+         (_tr (tr "_r")) (_r (begin (ast:restore s0) (eval-current)))
+         (_tr (tr "m0b")) (m0b (call0 (p-mw p)))
+         (reason (format "swarm search (pso+aco, ~a fibers): best cand #~a fitness ~a after ~a evals" SEARCH-N best-id (r4 (car (hash-ref BEST pol))) (hg PEVALS pol 0)))
+         (_tr (tr "rb")) (rb (try (mutate:rebind pol src reason) (catch (e) (list 'rebind-error e))))
+         (_tr (tr "_e")) (_e (eval-current))
+         (_tr (tr "m1")) (m1 (call0 (p-mw p)))
+         (_tr (tr "tc")) (tc (try (typecheck-current) (catch (e) (list 'tc-error e))))
+         (_tr (tr "gate")) (gate (cond ((string=? pol "should-arbitrate?") (g-arbitration (m-hash p m0) (m-hash p m1)))
+                     ((string=? pol "claim-root-cause") (g-claims (m-hash p m0) (m-hash p m1)))
+                     (else (g-expedite (m-hash p m0) (m-hash p m1))))))
+    (emit (string-append "commit." pol ".v1") (join-with ";" m0))
+    (emit (string-append "commit." pol ".v2file") (join-with ";" mv2))
+    (emit (string-append "commit." pol ".v1-restored-after-v2") (equal? m0 m0b))
+    (emit (string-append "commit." pol ".rebind") (if (eq? rb #t) "ok" (str rb)))
+    (emit (string-append "commit." pol ".typecheck") (str tc))
+    (emit (string-append "commit." pol ".metrics") (join-with ";" m1))
+    (emit (string-append "commit." pol ".fiber-metrics-equal") (equal? m1 fiber-m))
+    (emit (string-append "commit." pol ".gate") (if gate "pass" "fail"))
+    (emit (string-append "commit." pol ".src") src)
+    (audit! "swarm" "mutate:rebind" (format "~a reason=~a gate=~a before={~a} after={~a}" pol reason (if gate "pass" "fail") (join-with ";" m0) (join-with ";" m1)))
+    (let* ((s1 (ast:snapshot)) (src1 (ws-src)) (m-commit m1))
+      (if (not gate) (begin (ast:restore s0) (eval-current)) #f)
+      ;; rollback check A: commit the worst gate-passing candidate -> business gate must fail -> ast:restore
+      (let* ((wsrc (nth (hash-ref CANDS worst-id) 5))
+             (s-pre (ast:snapshot)) (src-pre (ws-src)) (m-pre (call0 (p-mw p)))
+             (_tr (tr "rbw")) (rbw (try (mutate:rebind pol wsrc "rollback drill: worst gated candidate") (catch (e) (list 'rebind-error e))))
+             (_tr (tr "_w")) (_w (eval-current)) (mw (call0 (p-mw p)))
+             (_tr (tr "gw")) (gw (cond ((string=? pol "should-arbitrate?") (g-arbitration (m-hash p m-pre) (m-hash p mw)))
+                       ((string=? pol "claim-root-cause") (g-claims (m-hash p m-pre) (m-hash p mw)))
+                       (else (g-expedite (m-hash p m-pre) (m-hash p mw)))))
+             (_tr (tr "_x")) (_x (begin (ast:restore s-pre) (eval-current)))
+             (_tr (tr "m-post")) (m-post (call0 (p-mw p))) (src-post (ws-src))
+             ;; rollback check B: a structurally broken rebind must be refused and change nothing
+             ;; (two closing parens dropped: a single missing trailing ')' is auto-closed by the parser)
+             (_tr (tr "rbb")) (bsrc (substring src 0 (- (string-length src) 2)))
+             (rbb (try (mutate:rebind pol bsrc "rollback drill: broken patch") (catch (e) (list 'rebind-error e))))
+             (_tr (tr "_y")) (_y (eval-current))
+             (_tr (tr "m-post2")) (m-post2 (call0 (p-mw p))) (src-post2 (ws-src))
+             ;; known leniency probe: one missing trailing ')' -- accepted? (restore afterwards either way)
+             (_tr (tr "s-pre3")) (s-pre3 (ast:snapshot))
+             (_tr (tr "rb1")) (rb1 (try (mutate:rebind pol (substring src 0 (- (string-length src) 1)) "probe: one paren short") (catch (e) (list 'rebind-error e))))
+             (_tr (tr "_z")) (_z (begin (ast:restore s-pre3) (eval-current))))
+        (emit (string-append "rollback." pol ".worst-gate") (if gw "pass" "fail"))
+        (emit (string-append "rollback." pol ".worst-metrics") (join-with ";" mw))
+        (emit (string-append "rollback." pol ".restored-metrics-equal") (equal? m-pre m-post))
+        (emit (string-append "rollback." pol ".restored-source-equal") (string=? src-pre src-post))
+        (emit (string-append "rollback." pol ".broken-rebind") (if (eq? rbb #t) "accepted(!)" "rejected"))
+        (emit (string-append "rollback." pol ".broken-guard") (if (balanced? bsrc) "missed" "rejected"))
+        (emit (string-append "rollback." pol ".broken-unchanged") (and (equal? m-pre m-post2) (string=? src-pre src-post2)))
+        (emit (string-append "probe." pol ".rebind-one-paren-short") (if (eq? rb1 #t) "accepted(lenient)" "rejected"))
+        (audit! "swarm" "ast:restore" (format "~a rollback drill worst=#~a gate=~a restored=~a" pol worst-id (if gw "pass" "fail") (equal? m-pre m-post)))
+        gate))))
+(define (m-hash p m) (let ((h (hash))) (for-each (lambda (k v) (hash-set! h k v)) (p-mnames p) m) h))
+
+;; ---------------------------------------------------------------- driver
+(define (template-check! p)
+  ;; template-v1 / template-v2 scored privately (same path as every candidate)
+  (let* ((i1 (new-cand! p "v1" (p-v1c p) (p-v1s p) "none"))
+         (i2 (new-cand! p "v2" (p-v2c p) (p-v2s p) "none"))
+         (m1 (split-on (nth (split-on (eval-candidate p i1 (nth (hash-ref CANDS i1) 5) #f) "|") 4) ","))
+         (r2 (split-on (eval-candidate p i2 (nth (hash-ref CANDS i2) 5) #f) "|")))
+    (hash-set! V2FIT (p-name p) (string->number (nth r2 3)))
+    (emit (string-append "tmpl." (p-name p) ".v1") (join-with ";" m1))
+    (emit (string-append "tmpl." (p-name p) ".v1-fit") (r4 (call1 (p-fit p) (map string->number m1))))
+    (emit (string-append "tmpl." (p-name p) ".v2") (join-with ";" (split-on (nth r2 4) ",")))
+    (emit (string-append "tmpl." (p-name p) ".v2-fit") (r4 (string->number (nth r2 3))))))
+
+(define (worst-pass-id pol)
+  (let loop ((ids (iota NEXT-ID)) (w #f) (wf 1000000.0))
+    (if (null? ids) w
+        (let* ((id (+ (car ids) 1)) (c (hash-ref CANDS id)) (f (hg SRC-CACHE (nth c 5) -1000.0)))
+          (if (and (string=? (nth c 0) pol) (> f -999.0) (< f wf) (not (string=? (nth c 1) "v1")) (not (string=? (nth c 1) "v2")))
+              (loop (cdr ids) id f) (loop (cdr ids) w wf))))))
+
+(define (run-search)
+  (pheromone:init)
+  (emit "search.n" SEARCH-N)
+  (emit "search.config" (format "seed=~a pso=~ax~a aco=~ax~a reps=~a noise=~a" SEARCH-SEED PSO-POP PSO-GENS ACO-ANTS ACO-ITERS EVAL-REPS NOISE-P))
+  (for-each template-check! POLICIES)
+  (set! EVALS 0) (set! PEVALS (hash))
+  (let ((t0 (monotonic-ms)))
+    (for-each
+      (lambda (p)
+        (let ((tp (monotonic-ms)))
+          ;; stage schedule (SCM_STAGES, default "aco,pso,aco"): every stage starts from the
+          ;; policy's current global best (cont + choices), so thresholds and structure co-adapt
+          (for-each
+            (lambda (st)
+              (let* ((has (hash-has-key? BEST (p-name p)))   ; start: hand-written v1 (never v2)
+                     (b (if has (hash-ref CANDS (nth (hash-ref BEST (p-name p)) 1)) #f))
+                     (cont (if has (nth b 2) (p-v1c p))) (choices (if has (nth b 3) (p-v1s p))))
+                (if (string=? st "pso")
+                    (pso-stage-with! p "pso" choices PSO-GENS)
+                    (aco-stage! p cont))
+                (emit (string-append "search." (p-name p) ".stage")
+                      (format "~a fit=~a id=~a" st (r4 (car (hash-ref BEST (p-name p)))) (nth (hash-ref BEST (p-name p)) 1)))))
+            STAGES)
+          (emit (string-append "search." (p-name p) ".ms") (- (monotonic-ms) tp))))
+      POLICIES)
+    (emit "search.wall-ms" (- (monotonic-ms) t0)))
+  (emit "search.evals" EVALS)
+  (emit "search.cache-hits" CACHE-HITS)
+  (emit "search.rejects" (format "parse=~a type=~a type-lint=~a runtime=~a" (hash-ref REJECTS "parse") (hash-ref REJECTS "type") (hash-ref REJECTS "type-lint") (hash-ref REJECTS "runtime")))
+  (emit "search.noisy" (format "injected=~a rejected=~a clean-rejected=~a" NOISY NOISY-REJECTED CLEAN-REJECTED))
+  (emit "search.overlay" (fiber:overlay-report))
+  (emit "search.overlay-max-pending" MAX-PENDING)
+  (for-each
+    (lambda (p)
+      (let* ((pol (p-name p)) (b (hash-ref BEST pol)) (c (hash-ref CANDS (nth b 1))))
+        (emit (string-append "best." pol ".fit") (r4 (car b)))
+        (emit (string-append "best." pol ".id") (nth b 1))
+        (emit (string-append "best." pol ".stage") (nth c 1))
+        (emit (string-append "best." pol ".metrics") (join-with ";" (nth b 2)))
+        (emit (string-append "best." pol ".evals-to-best") (nth b 3))
+        (emit (string-append "best." pol ".evals-to-v2") (hg REACHED-V2 pol -1))
+        (emit (string-append "best." pol ".evals") (hg PEVALS pol 0))
+        (emit (string-append "best." pol ".src") (nth c 5))
+        (emit (string-append "front." pol ".size") (length (hash-ref FRONT pol)))
+        (for-each (lambda (e) (emit (string-append "front." pol ".member") (format "~a|~a|~a|~a" (nth e 1) (r4 (nth e 2)) (join-with ";" (nth e 3)) (join-with ";" (car e)))))
+                  (hash-ref FRONT pol))))
+    POLICIES)
+  (emit "fingerprint" (join-with ";" (map (lambda (p) (let ((b (hash-ref BEST (p-name p)))) (format "~a:~a:~a" (p-name p) (nth b 1) (r4 (car b))))) POLICIES)))
+  #t)
+
+;; single-writer commit + rollback drills, one TOP-LEVEL form per policy (see search-main.aura):
+;; ast:snapshot / ast:restore cost grows with every cycle when driven from inside a function
+;; (aura#4737), so the drills are not nested in run-search.
+(define COMMIT-T0 0)
+(define (commit-policy! i)
+  (if (= (env-num "SCM_COMMIT" 1) 1)
+      (let ((p (nth POLICIES i)))
+        (if (= i 0) (set! COMMIT-T0 (monotonic-ms)) #f)
+        (commit-one! p (nth (hash-ref BEST (p-name p)) 1) (worst-pass-id (p-name p)))
+        (if (= i (- (length POLICIES) 1)) (emit "commit.ms" (- (monotonic-ms) COMMIT-T0)) #f))
+      (if (= i 0) (emit "commit.skipped" "SCM_COMMIT=0") #f)))
+(define (emit-mutation-log) (emit "mutation-log" (let ((l (query :mutation-log 50))) (if (pair? l) (length l) 0))))

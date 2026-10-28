@@ -1,0 +1,9 @@
+;; `eval` of an unbalanced string returns () instead of a parse error;
+;; mutate:rebind auto-closes ONE missing trailing ')' (two missing -> parse-error).
+(set-code "(define (f x) (+ x 1))") (eval-current)
+(define (show tag v) (display (list tag v)) (newline))
+(show 'eval-missing-close (try (eval "(+ 1 (* 2 3)") (catch (e) (list 'err e))))   ; expect parse error, got ()
+(show 'eval-extra-close (try (eval "(+ 1 2))") (catch (e) (list 'err e))))        ; expect parse error, got ()
+(show 'rebind-one-short (try (mutate:rebind "f" "(define (f x) (+ x 2)" "probe") (catch (e) (list 'err e)))) ; expect error, got #t
+(eval-current) (show 'f-1 (f 1))
+(show 'rebind-two-short (try (mutate:rebind "f" "(define (f x) (+ x 4" "probe") (catch (e) (list 'err e))))

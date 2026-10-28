@@ -1,0 +1,5 @@
+;; rest-args (variadic lambda) in parallel fiber bodies: the rest list is wrong in a few % of calls
+(define (second . xs) (cadr xs))
+(define (work k) (let loop ((i 0) (bad 0)) (if (= i 2000) bad (loop (+ i 1) (if (equal? (try (second i k) (catch (e) 'err)) k) bad (+ bad 1))))))
+(display (list 'serial-bad (work 7))) (newline)                     ; expect 0
+(display (list 'fiber-bad (map fiber:join (map (lambda (k) (fiber:spawn (lambda () (work k)))) (list 1 2 3 4))))) (newline) ; expect (0 0 0 0)

@@ -8,6 +8,8 @@ An optional LLM step writes the planner-facing explanation only; it never makes 
 
 中文说明见下方 [中文](#中文)。
 
+New: [automatic evolution with swarm search](#automatic-evolution-swarm-search-over-the-policies-pso--aco-fibers-cow-overlay) (`scripts/run_search.py`).
+
 ## Quick start
 
 ```bash
@@ -99,6 +101,101 @@ Audit trail entries look like
 `demand|mutate:rebind|should-arbitrate?@v2 reason=阈值从15%调至22%… gate=pass before={…rate=0.714 recall=1.0} after={…rate=0.0 recall=0.875}`
 and Aura's own `(query :mutation-log)` records the same reasons (`op=rebind sum=<reason>`).
 
+## Automatic evolution: swarm search over the policies (PSO + ACO, fibers, COW overlay)
+
+`aura/search.aura` searches the policy space on its own and compares what it finds with the hand-written v1 and v2.
+The searchers are std/pso, which tunes the continuous knobs, and std/ant pheromone trails, which choose structural
+mutations. Each candidate is scored in its own fiber.
+
+```bash
+# host mode (no docker): AURA_LIBDIR = a dir with a new-enough glibc/libstdc++ + ld-linux-x86-64.so.2
+export AURA_BIN=/path/to/aura/build-rel/aura AURA_STDLIB=/path/to/aura/lib [AURA_LIBDIR=...]
+python3 scripts/run_search.py            # N = 0,1,4,8,16 + one commit run at N=8 -> results/search.{json,md}, search-provenance.jsonl
+SCM_SEARCH_N=8 scripts/run_search.sh     # one run, raw @@key=value lines
+python3 -m unittest tests/test_search.py # parse tests; e2e (tiny budget) when AURA_BIN/AURA_STDLIB are set
+```
+Knobs: `SCM_SEARCH_N` (fibers per wave, 0 = serial), `SCM_SEED`, `SCM_PSO_POP/GENS`, `SCM_ACO_ANTS/ITERS`, `SCM_EVAL_REPS`,
+`SCM_NOISE_P` (share of candidates that get a deliberate defect, to exercise the gate), `SCM_STAGES` (default `aco,pso,aco`), `SCM_COMMIT`.
+
+**Search space.**
+* `should-arbitrate?`: the change threshold (0.15), the exposure threshold (500000) and the confidence cut (PSO), plus which of the
+  four conditions are on (ACO).
+* `claim-root-cause`: the bias threshold (PSO), plus branch order, supplier condition, demand condition (bias / bias-or-market / ...)
+  and default (ACO).
+* `expedite-response`: the inventory-days cutoff (PSO), plus the action per risk level (ACO).
+
+Each stage starts from the policy's current best, so thresholds and structure can co-adapt.
+
+**Per candidate.** mutate → gate (paren balance and parse, quoted-number lint, compile, output type/shape on every back-test row) →
+20 back-test runs on the mock metrics → discard. One provenance row is recorded per attempt (`results/search-provenance.jsonl`:
+stage, knobs, choices, injected defect, gate, reason, fitness, metrics, ms, error). Fitness is scalarized
+(arbitration: recall − false-alarm rate, −1 if recall < 0.8; claims: accuracy + recovery rate; expedite: −cost(M) − 0.1·stockouts),
+and a per-policy Pareto front of the raw objectives is kept next to it.
+
+**Design (shared state lives in one place).** The coordinator (the main program) owns everything mutable: the RNG, candidate
+table, global best, Pareto archive, the std/ant pheromone table and the std/pso swarm. It compiles each wave's candidates
+(`eval` of the define → closure), spawns N fibers and blocks in `channel:recv`. A worker fiber only does the following:
+`fiber:overlay-begin` → `fiber:overlay-define` of its closure (private, per-fiber COW overlay, aura#4715) → gate + score → `fiber:overlay-rollback` → `channel:send`
+of one string message. It never calls `set!` or `hash-set!` on shared data, because concurrent `hash-set!` and `set!` are unsafe on this build (aura#4730). The coordinator
+applies the messages sorted by candidate id, so results are bit-identical for every N. Only the coordinator touches the
+workspace: it `mutate:rebind`s the winners (with a reason), checks the installed metrics equal the fiber's, then runs
+two rollback drills (a worse candidate, and a truncated source), using `ast:snapshot`/`ast:restore`.
+
+### Results (seed 20261028, PSO 16×10, ACO 16×8 ×2, 20 reps; Aura main e6f4169e0, 8 vCPU)
+| policy | metrics | v1 | v2 | swarm best | fitness v1 / v2 / best | evals (policy) | evals to reach v2 (within policy) |
+|---|---|---|---|---|---|---|---|
+| `should-arbitrate?` | arbitrations, false_arbitrations, false_alarm_rate, recall | 28, 20, 0.714, 1 | 7, 0, 0, 0.875 | **8, 0, 0, 1** | 0.286 / 0.875 / **1** | 215 | 153 |
+| `claim-root-cause` | accuracy, unknown, recovered, recovery_rate | 0.708, 23, 3.161M, 0.607 | 1, 9, 5.21M, 1 | **1, 9, 5.21M, 1** | 1.315 / 2 / **2** | 211 | 5 |
+| `expedite-response` | expedites, supplier_switches, rebalances, stockouts, cost | 1, 34, 0, 4, 2.15M | 1, 6, 34, 4, 1.094M | **0, 6, 40, 0, 0.51M** | -2.55 / -1.494 / **-0.51** | 200 | 2 |
+
+N-scaling (separate processes, same seed; the search phase only):
+| N fibers | search wall s (median of 3) | runs (s) | speed-up vs serial | identical result |
+|---|---|---|---|---|
+| 0 (serial, no fibers) | 106.0 | 106.5 / 102.8 / 106.0 | 1.00× | True |
+| 1 | 109.5 | 109.1 / 110.9 / 109.5 | 0.97× | True |
+| 4 | 54.1 | 52.5 / 54.1 / 54.1 | 1.96× | True |
+| 8 | 45.7 | 52.2 / 42.2 / 45.7 | 2.32× | True |
+| 16 | 44.9 | 44.9 / 46.0 / 42.9 | 2.36× | True |
+
+Gate: 626 candidates evaluated, 90 rejected (0.144); every injected defect was rejected (injected=90 rejected=90 clean-rejected=0); reasons parse=29 type=42 type-lint=19 runtime=0.
+
+The commit and rollback drills all pass: installed metrics equal the fiber-scored metrics, v1 and v2 are reproduced from the policy files,
+and after rolling back a worse candidate both metrics and source are byte-identical. A truncated source is caught by the harness guard,
+and the workspace stays unchanged. Commit phase 9030 ms for the 3 policies; `(query :mutation-log)` has 10 entries.
+
+aura#4707 ("fibers never run in parallel") **no longer holds**. Since #4717 the CPU-bound scoring scales to about 2.5× at N=8 on 8 vCPUs. It
+flattens at N=16, where the coordinator's serial compile and apply and the wave barrier dominate. The demo itself (`run_demo.py`) still
+claims no speed-up.
+
+### Limitations
+* **No per-fiber workspace fork.** The overlay covers env bindings only. Candidates are therefore compiled with `eval` on the coordinator
+  (string `eval` deadlocks inside parallel fibers, aura#4734), and only the coordinator rebinds the workspace. Compiling is serialized.
+* **Workarounds for issues found here.** Fixed-arity callers on the fiber path, because rest-args lists get corrupted in parallel bodies (aura#4733).
+  A quoted-number lint, because `and` swallows a type error in a non-last operand (aura#4735). A paren-balance guard, because `eval`/`mutate:rebind` accept
+  unbalanced source (aura#4736). Commit drills run as top-level forms, because `ast:snapshot`/`restore` get slower when nested (aura#4737): 7 min 49 s nested vs ~1 s at top level.
+* **std/pso is a global singleton without ask/tell** (aura#4739). The harness reads `pso:population`, scores the generation itself and feeds
+  `pso:step!` a lookup. There is no multi-objective support (aura#4740) and the built-in `"parallel"` mode is unbounded and unisolated (aura#4741).
+* **In-sample search on 60 EDI rows / synthetic labels.** The search fits the back-test it is scored on. arbitration fitness 1.0 (recall 1.0,
+  0 false arbitrations) beats v2 *on this data*, but there is no hold-out split yet, so read it as "the mechanism finds the optimum", not as a better policy.
+  The expedite optimum (rebalance at every risk level) exploits the mock cost model, where a rebalance is cheap and falls back to the
+  alternative supplier when there is no sister-plant stock.
+
+### Filed swarm-search issues / 群体搜索相关问题
+
+| Issue | kind | probe |
+|---|---|---|
+| [#4733](https://github.com/cybrid-systems/aura/issues/4733) rest-args list wrong in parallel fiber bodies (+ SIGABRT) | bug | probes/rest-args-in-fibers.aura |
+| [#4734](https://github.com/cybrid-systems/aura/issues/4734) string `eval` deadlocks in parallel fibers | bug | probes/eval-in-fibers-hang.aura |
+| [#4735](https://github.com/cybrid-systems/aura/issues/4735) `and` swallows a type error in a non-last operand | bug | probes/and-swallows-type-error.aura |
+| [#4736](https://github.com/cybrid-systems/aura/issues/4736) `eval` returns () on unbalanced source; `mutate:rebind` auto-closes a paren | bug | probes/eval-lenient-parens.aura |
+| [#4737](https://github.com/cybrid-systems/aura/issues/4737) `ast:snapshot`/`restore` slower per cycle when nested in a function | bug (perf) | probes/snapshot-growth-{nested,toplevel}.aura |
+| [#4738](https://github.com/cybrid-systems/aura/issues/4738) std/ant `colony:search` leaves its last failed mutation installed | bug | probes/colony-search-leaves-mutation.aura |
+| [#4739](https://github.com/cybrid-systems/aura/issues/4739) std/pso instance handles + ask/tell, vmax/boundary handling | improvement | — |
+| [#4740](https://github.com/cybrid-systems/aura/issues/4740) std/swarm multi-objective (Pareto archive) | improvement | — |
+| [#4741](https://github.com/cybrid-systems/aura/issues/4741) std/swarm bounded, isolated fiber-parallel evaluation | improvement | — |
+| [#4742](https://github.com/cybrid-systems/aura/issues/4742) dry-run parse/typecheck of a candidate define | improvement | — |
+| [#4715 comment](https://github.com/cybrid-systems/aura/issues/4715#issuecomment-6468492917) field report: env overlay works; workspace fork missing | feedback | — |
+
 ## Honest notes / limitations
 
 Validated on Aura main **e6f4169e0** (2026-10-28), `AURA_TIER_JIT=0` and `=1`: demo 10/10 runs per JIT with no lost
@@ -161,6 +258,39 @@ KNU-55，共 7 个节点 3 跳；每个节点一个 scope 任务；`expedite-res
 #4721/#4722 已修复，但为保证可复现仍保留消息泵；`supervise-batch` 恢复默认 watch-scope（#4723 已修复）；scope 任务丢失
 （#4725/#4726）不再内联补执行，只计数并写入审计，测试会因丢失而失败（独立探针在 run-workflow 后仍有约 2-3/20 丢失，#4726 已重开）；
 `scope-cancel-all` 已能停止持续 yield 的任务（#4724）。
+
+**自动进化（群体搜索）**：`aura/search.aura` 用 std/pso（连续阈值：仲裁 0.15 / 500000 / 置信度门槛，索赔偏差阈值，
+响应库存天数门槛）和 std/ant 信息素（结构变异：条件开关、分支顺序、判定条件、各风险等级动作）自动搜索策略空间，阶段顺序默认
+`aco,pso,aco`，每个阶段从当前最优出发。每个候选：变异 → 门禁（括号/解析、数字被加引号检查、编译、全部回测行的输出类型/形状）→ 20 次模拟指标回测 →
+丢弃；每次尝试都写入溯源记录（`results/search-provenance.jsonl`），并同时维护标量化适应度和 Pareto 前沿。
+运行：`python3 scripts/run_search.py`（N=0/1/4/8/16 + N=8 提交演练），测试 `python3 -m unittest tests/test_search.py`。
+
+**设计**：所有共享可变状态（随机数、候选表、全局最优、Pareto、信息素、PSO 群）只在协调者中；协调者编译候选后启动 N 个 fiber，
+每个 fiber 只在自己的 COW overlay（#4715）里定义候选、打分、回滚，然后通过 channel 发回一条字符串消息，从不对共享数据 `set!`/`hash-set!`
+（本版本并发写不安全，#4730）。协调者按候选 id 排序应用消息，因此任何 N 下结果逐位一致；只有协调者 `mutate:rebind` 写工作区并做回滚演练。
+
+**结果**（种子 20261028，Aura e6f4169e0，8 vCPU）：
+
+| 策略 | 指标 | v1 | v2 | 搜索最优 | 适应度 v1 / v2 / 最优 | 评估次数 | 达到 v2 所需评估 |
+|---|---|---|---|---|---|---|---|
+| `should-arbitrate?` | arbitrations, false_arbitrations, false_alarm_rate, recall | 28, 20, 0.714, 1 | 7, 0, 0, 0.875 | **8, 0, 0, 1** | 0.286 / 0.875 / **1** | 215 | 153 |
+| `claim-root-cause` | accuracy, unknown, recovered, recovery_rate | 0.708, 23, 3.161M, 0.607 | 1, 9, 5.21M, 1 | **1, 9, 5.21M, 1** | 1.315 / 2 / **2** | 211 | 5 |
+| `expedite-response` | expedites, supplier_switches, rebalances, stockouts, cost | 1, 34, 0, 4, 2.15M | 1, 6, 34, 4, 1.094M | **0, 6, 40, 0, 0.51M** | -2.55 / -1.494 / **-0.51** | 200 | 2 |
+
+| fiber 数 N | 搜索耗时 s（3 次中位数） | 各次 (s) | 相对串行加速 | 结果一致 |
+|---|---|---|---|---|
+| 0 (serial, no fibers) | 106.0 | 106.5 / 102.8 / 106.0 | 1.00× | True |
+| 1 | 109.5 | 109.1 / 110.9 / 109.5 | 0.97× | True |
+| 4 | 54.1 | 52.5 / 54.1 / 54.1 | 1.96× | True |
+| 8 | 45.7 | 52.2 / 42.2 / 45.7 | 2.32× | True |
+| 16 | 44.9 | 44.9 / 46.0 / 42.9 | 2.36× | True |
+
+门禁：评估 626 个，拒绝 90 个，注入缺陷全部被拒（injected=90 rejected=90 clean-rejected=0），无误拒；提交与回滚演练全部通过（安装后指标与 fiber 打分一致，回滚后源码与指标逐字节一致，截断源码被拦截）。
+
+**说明/限制**：没有按 fiber 的工作区分叉，候选在协调者上串行编译（fiber 内字符串 `eval` 会死锁，#4734）；固定参数调用绕开 rest 参数在并行 fiber
+中损坏（#4733）；数字加引号检查绕开 `and` 吞掉类型错误（#4735）；括号检查绕开宽松解析（#4736）；提交演练放在顶层，避免嵌套时 snapshot/restore
+线性变慢（#4737，嵌套 7 分 49 秒 vs 顶层约 1 秒）。std/pso 是全局单例、无 ask/tell（#4739），无多目标（#4740），内置 parallel 无并发上限/隔离（#4741）。
+搜索在 60 条合成 EDI 数据上样本内拟合，没有留出集：仲裁适应度 1.0 超过 v2 仅说明机制能找到最优，不代表策略更好。#4707 的“无加速”结论已不成立。
 
 ## Filed orchestration issues / 已提交的编排问题
 
