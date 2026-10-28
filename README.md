@@ -198,6 +198,10 @@ claims no speed-up.
 | [#4744](https://github.com/cybrid-systems/aura/issues/4744) `channel:send` of a number from parallel fibers never arrives | bug | probes/channel-number-hang.aura |
 | [#4745](https://github.com/cybrid-systems/aura/issues/4745) pure closure via inner lambda in parallel fibers sometimes returns `<unknown>` | bug | probes/closure-unknown-in-fibers.aura |
 | [#4746](https://github.com/cybrid-systems/aura/issues/4746) datum reader from strings (`read-from-string`) + round-trip printer | improvement | — |
+| [#4747](https://github.com/cybrid-systems/aura/issues/4747) guard closures in parallel fiber bodies fail 3/3 runs (Void / `<error>`, exit 0) | bug | `SCM_GUARDS_IN_FIBERS=1` |
+| [#4748](https://github.com/cybrid-systems/aura/issues/4748) spurious type warning for `(if (pair? r) (car r) r)` via `set-code` | bug | — |
+| [#4749](https://github.com/cybrid-systems/aura/issues/4749) `eval` of a datum silently returns `()` | bug | — |
+| [#4750](https://github.com/cybrid-systems/aura/issues/4750) #4465 still reproduces on e6f4169e0 (`<error>`, rest of file skipped, exit 0) | bug | — |
 
 ## LLM proposes, swarm fine-tunes (hold-out evaluation, GLM-5.3-Flash vs MiniMax-M3.1-Flash)
 
@@ -570,6 +574,8 @@ KNU-55，共 7 个节点 3 跳；每个节点一个 scope 任务；`expedite-res
 
 **新发现的 Aura 问题**（见下表）：#4743 `quote` 会改写/求值/卡死特殊形式；#4744 fiber 中 `channel:send` 数字会卡死；
 #4745 并行 fiber 中闭包偶发返回 `<unknown>`；#4746 需要字符串 datum 读取器。
+守卫与 8 种子复跑中新发现：#4747 守卫闭包在并行 fiber 体内 3/3 失败（因此守卫在协调者上运行）；#4748 `set-code` 路径的虚假类型警告；
+#4749 `eval` 数据（非字符串）静默返回 `()`；#4750 #4465 在 e6f4169e0 上仍可复现。
 
 
 ### 领域守卫（guards.v1）
