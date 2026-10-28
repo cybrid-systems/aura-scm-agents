@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Adding (high-confidence? edi-change) filters six of eight shown false arbitrations with confidence 0.44–0.67, retaining the 0.83 and 0.91 cases. V1’s 20/28 false arbitrations (FAR 0.714) dominate its 0.286 fitness; this gate targets those failures while preserving magnitude, exposure, and frozen-horizon safeguards.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 10.82,
+ "attempts": 1,
+ "prompt_tokens": 1097,
+ "completion_tokens": 1594,
+ "reasoning_tokens": 1433,
+ "prompt_sha": "d9fbd95bd3c16e11",
+ "provider": "minimax"
+}

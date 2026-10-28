@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\": \"Add a confidence gate: 6 of the 8 sampled false-arbitration rows have confidence below 0.7 (0.44, 0.60, 0.61, 0.66, 0.67, 0.67) and are marked not needed, while v1 has FAR 0.714 with recall 1.0. Requiring high-confidence? should drop false-arbitrations substantially while holding recall above the 0.8 gate.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.15) (> inventory-exposure 500000) (not (frozen-horizon? edi-change)) (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 19.61,
+ "attempts": 1,
+ "prompt_tokens": 1110,
+ "completion_tokens": 4955,
+ "reasoning_tokens": 4786,
+ "prompt_sha": "15c8d30f592d9ec4",
+ "provider": "minimax"
+}

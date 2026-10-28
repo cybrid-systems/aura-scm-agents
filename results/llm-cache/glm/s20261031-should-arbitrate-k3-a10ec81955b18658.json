@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"6 of 8 failure rows are low-trust changes (confidence 0.44-0.67, e.g. pct=0.224 conf=0.44; pct=0.203 conf=0.6). Adding (high-confidence? edi-change) as a fourth gate filters these while true needs carry confidence >= 0.7, cutting false-arbitration-rate from 0.714 without breaching the recall >= 0.8 gate.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 52.89,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 2180,
+ "reasoning_tokens": 2005,
+ "prompt_sha": "a10ec81955b18658",
+ "provider": "glm"
+}

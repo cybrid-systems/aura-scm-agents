@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Broaden the <5-day expedited branch from high-only to medium-or-higher. The medium/2.8 failure row incurs 195000 and one stockout; alert-planner always arrives in time for 35000. This one threshold edit should reduce v1's 34 supplier switches, lower cost below 2165000, and reduce stockouts below 4.\",\"source\":\"(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'medium)) (< inventory-days 5)) (list 'alert-planner 'immediate-expedite-review)) ((>= (risk-rank risk-level) (risk-rank 'medium)) (list 'suggest-alternative-supplier)) (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 30.06,
+ "attempts": 1,
+ "prompt_tokens": 1469,
+ "completion_tokens": 3307,
+ "reasoning_tokens": 3143,
+ "prompt_sha": "29fa7735a6ba384b",
+ "provider": "minimax"
+}

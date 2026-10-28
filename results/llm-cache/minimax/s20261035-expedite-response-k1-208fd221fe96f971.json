@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Replace the medium/high alternative-supplier action with alert-planner. On 40 train events, this turns 34 switches plus 1 expedite into 35 timely alerts: cost falls from $2.165M to $1.225M and stockouts from 4 to 0, eliminating the medium/5.3 and medium/2.8 failures (projected fitness -1.225).\",\"source\":\"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (>= (risk-rank risk-level) (risk-rank 'high))\\n          (< inventory-days 5))\\n      (list 'alert-planner 'immediate-expedite-review))\\n    ((>= (risk-rank risk-level) (risk-rank 'medium))\\n      (list 'alert-planner 'immediate-expedite-review))\\n    (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 44.24,
+ "attempts": 1,
+ "prompt_tokens": 1469,
+ "completion_tokens": 3610,
+ "reasoning_tokens": 3422,
+ "prompt_sha": "208fd221fe96f971",
+ "provider": "minimax"
+}

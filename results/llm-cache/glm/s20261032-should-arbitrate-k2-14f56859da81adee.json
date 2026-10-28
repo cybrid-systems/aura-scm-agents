@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"Added a high-confidence gate and raised the exposure floor to 700000. Six of eight false rows have confidence<0.7; the two high-confidence misses (0.83, 0.91) sit at exposure 680k/690k, below the new floor. This cuts false-arbitration-rate from 0.714 while large, confident, unfrozen changes still arbitrate, protecting the 0.8 recall gate.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 700000)\\n       (high-confidence? edi-change)\\n       (not (frozen-horizon? edi-change))))\"}",
+ "finish": "stop",
+ "latency_s": 67.47,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 2814,
+ "reasoning_tokens": 2643,
+ "prompt_sha": "14f56859da81adee",
+ "provider": "glm"
+}

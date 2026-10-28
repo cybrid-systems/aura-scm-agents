@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"All 4 stockouts (195000 each) come from branch 2's suggest-alternative-supplier, and cost 2165000=35000+30*45000+4*195000. alert-planner (35000, always on time) dominates alt-supplier (45000, late risk). Redirecting branch 2 to alert-planner cuts cost to 1825000 and stockouts 4->0 (fitness -2.565->-1.825); gate holds.\", \"source\": \"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 5))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    ((>= (risk-rank risk-level) (risk-rank 'medium))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 318.15,
+ "attempts": 2,
+ "prompt_tokens": 2646,
+ "completion_tokens": 13409,
+ "reasoning_tokens": 13162,
+ "prompt_sha": "5fd11ff4c7cad78e",
+ "provider": "glm"
+}

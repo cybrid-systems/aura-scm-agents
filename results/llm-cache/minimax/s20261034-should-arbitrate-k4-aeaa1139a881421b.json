@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add the >=0.7 confidence gate and tighten change/exposure thresholds to >0.4 and >1,000,000. Each of eight listed false-arbitration rows violates at least one gate, so this should reduce the 0.714 false-arbitration rate while retaining enough of the eight true positives to keep recall >=0.8.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.4)\\n       (> inventory-exposure 1000000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 69.48,
+ "attempts": 1,
+ "prompt_tokens": 1097,
+ "completion_tokens": 7551,
+ "reasoning_tokens": 7400,
+ "prompt_sha": "aeaa1139a881421b",
+ "provider": "minimax"
+}

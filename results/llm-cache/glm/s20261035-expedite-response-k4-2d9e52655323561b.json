@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"Most failure rows (inventory-days 10.0-13.2 vs regular-lead 4-8, risk-materialized=#f/#t) pay 45000 supplier-switch cost when monitoring is safe: with inventory-days>=9 the regular delivery (max lead 8) arrives first, so no stockout. Adding a monitor branch for medium/high risk above that threshold cuts cost per 40 events without raising the 4 stockouts.\", \"source\": \"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 5))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    ((and (>= (risk-rank risk-level) (risk-rank 'medium)) (>= inventory-days 9))\\n     (list 'monitor))\\n    ((>= (risk-rank risk-level) (risk-rank 'medium))\\n     (list 'suggest-alternative-supplier))\\n    (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 73.33,
+ "attempts": 1,
+ "prompt_tokens": 1323,
+ "completion_tokens": 3244,
+ "reasoning_tokens": 3006,
+ "prompt_sha": "2d9e52655323561b",
+ "provider": "glm"
+}

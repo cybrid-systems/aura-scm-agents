@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Change the medium-or-higher fallback to alert-planner/immediate-expedite-review. Alert-planner costs 35,000 versus 45,000 and always arrives in time; thus the 34 supplier switches can become alerts, eliminating four stockouts. The 2.8- and 5.3-day failure rows cost 195,000 each. Projected cost falls from 2,165,000 to 1,225,000.\",\"source\":\"(define (expedite-response risk-level inventory-days) (cond ((and (>= (risk-rank risk-level) (risk-rank 'high)) (< inventory-days 5)) (list 'alert-planner 'immediate-expedite-review)) ((>= (risk-rank risk-level) (risk-rank 'medium)) (list 'alert-planner 'immediate-expedite-review)) (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 69.15,
+ "attempts": 2,
+ "prompt_tokens": 2938,
+ "completion_tokens": 11422,
+ "reasoning_tokens": 11237,
+ "prompt_sha": "94af5ee487146a12",
+ "provider": "minimax"
+}

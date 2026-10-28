@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"suggest-alternative-supplier (45000) is dominated by alert-planner (35000, always on time): v1's 34 switches caused all 4 stockouts (inventory-days 5.3 and 2.8 rows). I removed that branch: alert any medium+ risk when inventory-days < 8 (max observed regular lead), else monitor saves 45000 where inventory outlasts delivery.\", \"source\": \"(define (expedite-response risk-level inventory-days)\\n  (cond ((and (>= (risk-rank risk-level) (risk-rank 'medium)) (< inventory-days 8))\\n         (list 'alert-planner 'immediate-expedite-review))\\n        (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 55.38,
+ "attempts": 1,
+ "prompt_tokens": 1323,
+ "completion_tokens": 2272,
+ "reasoning_tokens": 2110,
+ "prompt_sha": "208fd221fe96f971",
+ "provider": "glm"
+}

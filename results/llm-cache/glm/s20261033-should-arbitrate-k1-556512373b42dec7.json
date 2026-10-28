@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"6 of 8 false-positive rows (confidence=0.44, 0.6, 0.66, 0.61, 0.67, 0.67) show v1 arbitrates weakly-supported changes, driving false-arbitration-rate to 0.714. Adding the high-confidence? gate should cut false arbitrations while preserving recall >= 0.8, raising fitness above 0.286.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 32.69,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 1324,
+ "reasoning_tokens": 1156,
+ "prompt_sha": "556512373b42dec7",
+ "provider": "glm"
+}

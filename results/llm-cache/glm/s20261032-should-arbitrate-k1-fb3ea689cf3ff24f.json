@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"6 of 8 false arbitrations have confidence < 0.7 (0.44-0.67) yet v1 arbitrates; the provided high-confidence? helper is unused. Adding it as a gate should cut FAR (0.714) sharply, keeping recall high and satisfying the recall>=0.8 gate.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (high-confidence? edi-change)\\n       (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))))\"}",
+ "finish": "stop",
+ "latency_s": 31.27,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 1273,
+ "reasoning_tokens": 1129,
+ "prompt_sha": "fb3ea689cf3ff24f",
+ "provider": "glm"
+}

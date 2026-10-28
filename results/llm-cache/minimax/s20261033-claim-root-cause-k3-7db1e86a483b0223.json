@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Replace the forecast branch condition with forecast-bias or market-signal-mismatch, removing the 0.1 threshold. This fixes all eight shown failures, including bias amounts 0.065–0.081 and market-mismatch rows, while preserving supplier precedence. It should raise accuracy above 0.708 and recover formerly unknown claims such as 254000 and 216000 without reducing recovered amount.\",\"source\":\"(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((or (forecast-bias? expedite-event) (market-signal-mismatch? expedite-event)) 'demand-forecast-error) (else 'unknown)))\"}",
+ "finish": "stop",
+ "latency_s": 15.56,
+ "attempts": 1,
+ "prompt_tokens": 1223,
+ "completion_tokens": 1602,
+ "reasoning_tokens": 1444,
+ "prompt_sha": "7db1e86a483b0223",
+ "provider": "minimax"
+}

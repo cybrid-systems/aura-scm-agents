@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"Failure rows show two miss patterns: forecast-bias with amounts 0.065-0.081 fall under the 0.1 threshold, and market-mismatch=#t rows (amounts 164000-254000) are truth=demand-forecast-error but ignored. I added market-signal-mismatch as an alternate trigger and lowered the bias threshold to 0.06, converting unknowns into recovered forecast-error claims.\", \"source\": \"(define (claim-root-cause expedite-event)\\n  (cond\\n    ((and (edi-increase? expedite-event)\\n          (supplier-lead-time-miss? expedite-event))\\n     'supplier-delay)\\n    ((or (and (forecast-bias? expedite-event)\\n              (> (bias-amount expedite-event) 0.06))\\n         (market-signal-mismatch? expedite-event))\\n     'demand-forecast-error)\\n    (else 'unknown)))\"}",
+ "finish": "stop",
+ "latency_s": 21.9,
+ "attempts": 1,
+ "prompt_tokens": 1048,
+ "completion_tokens": 826,
+ "reasoning_tokens": 616,
+ "prompt_sha": "926bf28d84ee2240",
+ "provider": "glm"
+}

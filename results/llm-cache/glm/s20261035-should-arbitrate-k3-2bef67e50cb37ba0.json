@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"6 of 8 failure rows are false arbitrations with confidence 0.44-0.67; adding a high-confidence? gate removes them while the pct/exposure/frozen conditions are unchanged. Recall risk is bounded: recall only drops below the 0.8 gate if 2+ of the 8 true arbitrations have confidence < 0.7.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (high-confidence? edi-change)\\n       (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))))\"}",
+ "finish": "stop",
+ "latency_s": 29.14,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 1144,
+ "reasoning_tokens": 994,
+ "prompt_sha": "2bef67e50cb37ba0",
+ "provider": "glm"
+}

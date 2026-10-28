@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add a high-confidence? gate to the existing magnitude, exposure, and frozen-horizon tests. Six of the eight shown costly rows are needed=#f with confidence below 0.7, rejecting six known false arbitrations and reducing v1's 0.714 false-arbitration rate while preserving positive cases that meet the confidence threshold.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.15) (> inventory-exposure 500000) (not (frozen-horizon? edi-change)) (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 109.42,
+ "attempts": 2,
+ "prompt_tokens": 2196,
+ "completion_tokens": 10436,
+ "reasoning_tokens": 10297,
+ "prompt_sha": "30c8b8b6a9173880",
+ "provider": "minimax"
+}

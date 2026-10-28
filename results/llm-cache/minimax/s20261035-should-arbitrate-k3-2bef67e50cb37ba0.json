@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add the high-confidence gate before returning true. Six of the eight displayed false-arbitration rows have confidence below 0.7, so the edit removes those costly positives while leaving magnitude, exposure, and frozen tests intact for high-confidence events, protecting recall >=0.8. V1's FAR is 0.714 (20/28).\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 53.39,
+ "attempts": 1,
+ "prompt_tokens": 1097,
+ "completion_tokens": 5792,
+ "reasoning_tokens": 5643,
+ "prompt_sha": "2bef67e50cb37ba0",
+ "provider": "minimax"
+}

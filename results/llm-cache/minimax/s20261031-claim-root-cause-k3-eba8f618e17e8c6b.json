@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Broaden the demand-forecast condition to include market-signal mismatches and lower the bias cutoff from 0.1 to 0.05. This corrects the cited unknown rows with biases 0.065–0.081 or market-mismatch=#t, improving accuracy above 0.708 while increasing recovery beyond 3,161,000.\",\"source\":\"(define (claim-root-cause expedite-event)\\n  (cond\\n    ((and (edi-increase? expedite-event)\\n          (supplier-lead-time-miss? expedite-event))\\n     'supplier-delay)\\n    ((or (market-signal-mismatch? expedite-event)\\n         (and (forecast-bias? expedite-event)\\n              (> (bias-amount expedite-event) 0.05)))\\n     'demand-forecast-error)\\n    (else 'unknown)))\"}",
+ "finish": "stop",
+ "latency_s": 21.25,
+ "attempts": 1,
+ "prompt_tokens": 1223,
+ "completion_tokens": 2033,
+ "reasoning_tokens": 1851,
+ "prompt_sha": "eba8f618e17e8c6b",
+ "provider": "minimax"
+}

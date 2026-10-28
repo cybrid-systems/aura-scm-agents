@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Current accuracy is 0.708 with 23 unknowns and recovery-rate 0.607. Add market-signal mismatch as demand-forecast evidence and lower the bias cutoff from 0.1 to 0.05, converting the listed unknown failures while preserving the supplier-delay branch, so accuracy and recovered amount should rise.\",\"source\":\"(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((or (market-signal-mismatch? expedite-event) (and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.05))) 'demand-forecast-error) (else 'unknown)))\"}",
+ "finish": "stop",
+ "latency_s": 26.23,
+ "attempts": 1,
+ "prompt_tokens": 1223,
+ "completion_tokens": 3224,
+ "reasoning_tokens": 3067,
+ "prompt_sha": "416c9a869ccd0a31",
+ "provider": "minimax"
+}

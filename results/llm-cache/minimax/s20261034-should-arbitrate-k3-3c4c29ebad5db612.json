@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add a high-confidence guard to the existing conjunction. V1’s 0.714 false-arbitration rate (20/28) dominates fitness despite recall 1.0; six of eight shown false rows have confidence below 0.70. This guard removes those rows while preserving v1’s magnitude, exposure, and frozen-horizon logic.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 22.88,
+ "attempts": 1,
+ "prompt_tokens": 1097,
+ "completion_tokens": 2681,
+ "reasoning_tokens": 2533,
+ "prompt_sha": "3c4c29ebad5db612",
+ "provider": "minimax"
+}

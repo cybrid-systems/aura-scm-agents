@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"All 20 errors are false arbitrations; 6 of 8 shown rows have confidence <0.7 (0.44, 0.60, 0.61, 0.66, 0.67, 0.67). Adding high-confidence? as a conjunct prunes those low-confidence arbitrations while keeping the large-change/exposure gate, cutting false-arbitration-rate sharply while recall stays at 1.0.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (high-confidence? edi-change)\\n       (not (frozen-horizon? edi-change))))\"}",
+ "finish": "stop",
+ "latency_s": 40.84,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 1700,
+ "reasoning_tokens": 1532,
+ "prompt_sha": "d51f816fc2e8d9c4",
+ "provider": "glm"
+}

@@ -325,6 +325,42 @@ beats v1 on train fitness **and** passes the business gate vs v1.
   datum reader (aura#4746).
 * Fiber messages are strings because numbers hang `channel:recv` (aura#4744).
 
+## Domain guards: business invariants as versioned workspace EDSL predicates (`aura/policies/guards.v1.aura`)
+
+The invariants are not Python checks. They are Aura defines installed into the workspace next to the policies, so
+`query:calls` / `current-source :workspace` can find them. They are versioned: `(guards-version)` is `"guards.v1"`, and a
+`mutate:rebind` with a reason lands in the mutation log and the audit trail; `tests/test_guards.py` rebinds and restores a
+guard. Each guard is `(lambda (f rows) -> violations)` over the candidate closure, the policy's **train** rows and a synthetic
+domain grid (hold-out rows are never used). `(guard-registry)` lists `(name policy mode doc fn)`:
+
+| guard | policy | mode | invariant |
+|---|---|---|---|
+| `exp.high-never-monitor` | `expedite-response` | hard (0) | high risk never maps to `monitor` (grid 0-20 inventory days) |
+| `exp.critical-alert` | `expedite-response` | no-regress vs v1 (v1 = 4) | inventory-days < 2.0 with medium/high risk → at least `alert-planner` |
+| `arb.frozen-never` | `should-arbitrate?` | hard (0) | recall on frozen-horizon changes stays 0 (frozen train rows + 36 synthetic frozen changes) |
+| `claims.evidence-not-unknown` | `claim-root-cause` | hard (0) | a labelled row with evidence (lead-time miss, forecast bias, market mismatch) never returns `unknown` (v1 = 28) |
+
+Where they run: the guards are part of the gate. On the fiber path they run on the **coordinator** after each wave
+(`guard-post` in `aura/search.aura`), not in the fiber bodies. In-fiber guard closures abort or return `Void`/`<error>` on
+Aura e6f4169e0; `SCM_GUARDS_IN_FIBERS=1` reproduces it. On the serial path (`SCM_SEARCH_N=0`) they run inside `score-once`.
+Verdicts are identical for N = 0 and N = 2 (`tests/test_search.py`). Each guard is retried 3× (closure flake aura#4745). A
+rejected candidate gets gate reason `guard`; counts are emitted per guard (`search.guard-rejects`, `llm.guard-rejects`).
+`SCM_GUARDS=0` turns them off. The commit path (`evolve.aura`) also refuses a rebind whose guards fail.
+
+**Re-audit of the previous 3-seed winners (eb43aef) against guards.v1** — the guards reject the MiniMax+swarm overfit:
+
+| arm | `should-arbitrate?` | `claim-root-cause` | `expedite-response` |
+|---|---|---|---|
+| v1 / hand v2 | pass / pass | **fail** (28) / pass | pass / pass (critical-alert 4 = baseline) |
+| swarm only | pass ×3 | pass ×3 | pass ×3 |
+| GLM LLM-only | pass ×3 | reject ×3 (evidence-not-unknown 8) | reject ×3 (high-never-monitor 23/21/25) |
+| GLM LLM+swarm | pass ×3 | reject ×3 (8) | reject ×3 (27) |
+| MiniMax LLM-only | pass ×3 | reject ×3 (8) | reject 1/3 (seed 29: 25) |
+| MiniMax LLM+swarm | pass ×3 | reject ×3 (8/4/8) | **reject ×3** (high-never-monitor 41/27/41, critical-alert 4/0/4) |
+
+In a small guarded search (`SCM_SEARCH_N=2`, small budgets) the gate rejected 47 candidates by guard
+(arb.frozen-never 8, claims 13, critical-alert 18, high-never-monitor 8), with the same verdicts at N=0.
+
 ## Honest notes / limitations
 
 Validated on Aura main **e6f4169e0** (2026-10-28), `AURA_TIER_JIT=0` and `=1`: demo 10/10 runs per JIT with no lost
@@ -452,6 +488,10 @@ KNU-55，共 7 个节点 3 跳；每个节点一个 scope 任务；`expedite-res
 
 **新发现的 Aura 问题**（见下表）：#4743 `quote` 会改写/求值/卡死特殊形式；#4744 fiber 中 `channel:send` 数字会卡死；
 #4745 并行 fiber 中闭包偶发返回 `<unknown>`；#4746 需要字符串 datum 读取器。
+
+
+### 领域守卫（guards.v1）
+业务不变量以 Aura 工作区 EDSL 谓词实现（`aura/policies/guards.v1.aura`），可查询、可版本化（mutate:rebind 记入变更日志），不写死在 Python 中：高风险绝不映射为 monitor；库存天数低于临界值（2.0）至少 alert-planner（相对 v1 不退化）；冻结期变更的仲裁召回保持 0；有证据的已标注索赔绝不返回 unknown。守卫在 fiber 路径上于协调器执行（fiber 内执行会在 e6f4169e0 上崩溃，`SCM_GUARDS_IN_FIBERS=1` 可复现）。对上一轮结果的复核：MiniMax+swarm 的 3 个 expedite 获胜者全部被拒（high-never-monitor 41/27/41）。
 
 ## Filed orchestration issues / 已提交的编排问题
 

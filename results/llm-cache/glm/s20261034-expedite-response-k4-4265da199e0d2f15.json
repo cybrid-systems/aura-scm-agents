@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"Split the costly medium/high branch into inventory bands: <4.5 days → alert-planner (transfers/alt arrive late: inv 2.8/5.3 stockouts at 195000); ≥9 days → monitor (regular-lead ≤8 beats inv 10–13.2 rows, cost 0 vs 45000); 4.5–9 days → propose-internal-rebalance (6000, transfers 2–4 days arrive in time vs 45000 switches).\", \"source\": \"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (>= (risk-rank risk-level) (risk-rank 'medium)) (< inventory-days 4.5))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    ((and (>= (risk-rank risk-level) (risk-rank 'medium)) (>= inventory-days 9.0))\\n     (list 'monitor))\\n    ((>= (risk-rank risk-level) (risk-rank 'medium))\\n     (list 'propose-internal-rebalance))\\n    (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 131.07,
+ "attempts": 1,
+ "prompt_tokens": 1323,
+ "completion_tokens": 5188,
+ "reasoning_tokens": 4926,
+ "prompt_sha": "4265da199e0d2f15",
+ "provider": "glm"
+}

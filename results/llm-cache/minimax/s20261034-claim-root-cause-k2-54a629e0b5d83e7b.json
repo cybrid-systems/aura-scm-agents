@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\": \"Lowered the forecast-bias threshold 0.1\\u21920.05 and added market-signal-mismatch? as a demand-error trigger: the 8 shown failure rows (bias 0.065\\u20130.081, amounts 45k\\u2013254k) were all 'unknown' but truly demand-forecast-error. The supplier branch stays first, so supplier-delay rows are unchanged; unknown=23 should fall and recovered amount rise.\", \"source\": \"(define (claim-root-cause expedite-event)\\n  (cond\\n    ((and (edi-increase? expedite-event)\\n          (supplier-lead-time-miss? expedite-event))\\n     'supplier-delay)\\n    ((or (market-signal-mismatch? expedite-event)\\n         (and (forecast-bias? expedite-event)\\n              (> (bias-amount expedite-event) 0.05)))\\n     'demand-forecast-error)\\n    (else 'unknown)))\"}",
+ "finish": "stop",
+ "latency_s": 6.73,
+ "attempts": 1,
+ "prompt_tokens": 1236,
+ "completion_tokens": 1749,
+ "reasoning_tokens": 1545,
+ "prompt_sha": "54a629e0b5d83e7b",
+ "provider": "minimax"
+}

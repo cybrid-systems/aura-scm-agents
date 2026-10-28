@@ -48,6 +48,31 @@
     (hash "expedites" (list-ref m 0) "supplier-switches" (list-ref m 1) "rebalances" (list-ref m 2) "stockouts" (list-ref m 3)
           "cost" (list-ref m 4) "events" (list-ref m 5))))
 
+;; ---------------------------------------------------------------- domain guards (gate plumbing)
+;; The guards are workspace EDSL defines (aura/policies/guards.v1.aura): (guard-registry) ->
+;; (name policy mode doc fn), fn: (f rows) -> violations.  Every gate (evolution demo, swarm
+;; worker, swarm commit, LLM+swarm commit) runs them next to the metric gate.
+(define (train-rows pol) (cond ((string=? pol "should-arbitrate?") edi-history) ((string=? pol "claim-root-cause") claim-history) (else risk-history)))
+(define (guards-of pol) (keep (lambda (g) (string=? (list-ref g 1) pol)) (guard-registry)))
+(define GUARD-BASE (hash))   ; guard name -> violations of the incumbent (v1); written once, before any fiber runs
+(define GUARD-REJ (hash))    ; guard name -> candidates rejected by it (coordinator)
+(define (guard-viol g f pol) (try ((list-ref g 4) f (train-rows pol)) (catch (e) 1000000)))
+(define (guard-ok? g n) (if (string=? (list-ref g 2) "hard") (= n 0) (<= n (hg GUARD-BASE (list-ref g 0) 0))))
+;; first failing guard name, or #f.  A guard is retried up to 3 times (the closure <unknown>
+;; flake of aura#4745 could fake a violation; a real violation is deterministic and fails every try).
+(define (guard-pass-1? g f pol) (guard-ok? g (guard-viol g f pol)))
+(define (guards-fail pol f)
+  (let loop ((gs (guards-of pol)))
+    (cond ((null? gs) #f)
+          ((or (guard-pass-1? (car gs) f pol) (guard-pass-1? (car gs) f pol) (guard-pass-1? (car gs) f pol)) (loop (cdr gs)))
+          (else (list-ref (car gs) 0)))))
+(define (ws-fn pol) (eval pol))   ; the workspace binding after eval-current
+(define (ws-guards-fail pol) (guards-fail pol (ws-fn pol)))
+;; incumbent baseline for "no-regress" guards from the live workspace binding (once, before mutating)
+(define (guards-baseline-ws! pol)
+  (for-each (lambda (g) (if (hash-has-key? GUARD-BASE (list-ref g 0)) #f (hash-set! GUARD-BASE (list-ref g 0) (guard-viol g (ws-fn pol) pol))))
+            (guards-of pol)))
+
 ;; gates: a mutation is kept only if the business guard holds vs. the previous version
 (define (g-arbitration old new) (and (>= (hash-ref new "recall") 0.8) (<= (hash-ref new "false-arbitration-rate") (hash-ref old "false-arbitration-rate"))))
 (define (g-claims old new) (and (>= (hash-ref new "accuracy") (hash-ref old "accuracy")) (>= (hash-ref new "recovered") (hash-ref old "recovered"))))
@@ -68,7 +93,8 @@
                (cons #f prev))
         (begin
           (eval-current)
-          (let* ((m (metric)) (pass (gate prev m)))
+          (let* ((m (metric)) (gfail (ws-guards-fail policy)) (pass (and (not gfail) (gate prev m))))
+            (emit (string-append tag ".guards") (if gfail (string-append "fail:" gfail) "pass"))
             (emit-metrics (string-append tag ".metrics") m)
             (emit (string-append tag ".gate") (if pass "pass" "fail"))
             (audit! actor "mutate:rebind" (format "~a@~a reason=~a gate=~a before={~a} after={~a}" policy ver reason (if pass "pass" "fail") (mstr prev) (mstr m)))
@@ -85,6 +111,7 @@
          (calls (query:calls policy))
          (du (query :def-use policy))
          (s0 (ast:snapshot))
+         (_g (guards-baseline-ws! policy))
          (m0 (metric)))
     (emit (string-append tag ".located") (format "calls=~a def-use=~a entry=~a" calls du entry))
     (audit! actor "locate" (format "~a query:calls=~a def-use=~a snapshot=~a" policy calls du s0))

@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"Added high-confidence? gate and raised exposure threshold 500000→700000. 6/8 shown false arbitrations have confidence<0.7, and the two confident misses (0.83/0.91) sit at exposure 680k/690k, so the conjunction blocks all shown failures while keeping recall above the 0.8 business gate.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (high-confidence? edi-change)\\n       (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 700000)\\n       (not (frozen-horizon? edi-change))))\"}",
+ "finish": "stop",
+ "latency_s": 80.26,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 3219,
+ "reasoning_tokens": 3066,
+ "prompt_sha": "76b700d054e1a47a",
+ "provider": "glm"
+}

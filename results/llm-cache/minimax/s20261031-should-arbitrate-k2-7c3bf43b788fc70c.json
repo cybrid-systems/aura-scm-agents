@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\": \"Add (high-confidence? edi-change) as a conjunct: v1's FAR is 0.714 (20/28 false) yet six of eight shown false rows have confidence < 0.7 (0.44, 0.60, 0.61, 0.66, 0.67, 0.67). Gating on high-confidence? should cut false arbitrations while keeping recall (1.0) above the 0.8 gate.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 28.26,
+ "attempts": 1,
+ "prompt_tokens": 1110,
+ "completion_tokens": 7670,
+ "reasoning_tokens": 7493,
+ "prompt_sha": "7c3bf43b788fc70c",
+ "provider": "minimax"
+}

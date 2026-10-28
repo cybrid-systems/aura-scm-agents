@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add market-signal-mismatch as a demand-forecast-error signal and lower the bias cutoff from 0.1 to 0.05. This corrects the eight shown unknown rows, including bias amounts 0.065, 0.067, and 0.081, so accuracy should exceed 0.708 and recovery should rise without changing supplier-delay handling.\",\"source\":\"(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((or (market-signal-mismatch? expedite-event) (and (forecast-bias? expedite-event) (> (bias-amount expedite-event) 0.05))) 'demand-forecast-error) (else 'unknown)))\"}",
+ "finish": "stop",
+ "latency_s": 32.0,
+ "attempts": 1,
+ "prompt_tokens": 1223,
+ "completion_tokens": 2729,
+ "reasoning_tokens": 2563,
+ "prompt_sha": "70372009c488d2f1",
+ "provider": "minimax"
+}

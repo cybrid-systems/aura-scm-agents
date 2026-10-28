@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"All 20 failure rows are false arbitrations with confidence below 0.7 (0.44–0.67, e.g. pct=-0.428, exposure=1300000, confidence=0.66). Adding the high-confidence? gate should cut false-arbitration-rate from 0.714 while retaining confident positives, protecting the recall>=0.8 gate.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (high-confidence? edi-change)\\n       (not (frozen-horizon? edi-change))))\"}",
+ "finish": "stop",
+ "latency_s": 24.03,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 890,
+ "reasoning_tokens": 734,
+ "prompt_sha": "4227cc73860eb27f",
+ "provider": "glm"
+}

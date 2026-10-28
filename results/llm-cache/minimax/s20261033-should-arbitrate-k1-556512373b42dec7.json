@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add a high-confidence gate. v1’s 28 arbitrations include 20 false ones (FAR 0.714) despite recall 1.0; six of eight shown false positives have confidence below 0.7. This targets the dominant false-arbitration pattern while retaining the existing magnitude, exposure, and frozen-horizon protections.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.15) (> inventory-exposure 500000) (not (frozen-horizon? edi-change)) (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 53.24,
+ "attempts": 1,
+ "prompt_tokens": 1097,
+ "completion_tokens": 4289,
+ "reasoning_tokens": 4151,
+ "prompt_sha": "556512373b42dec7",
+ "provider": "minimax"
+}

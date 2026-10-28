@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"Rows with inventory-days 10-13.2 waste 45000 since regular-lead <= 8 lets monitor arrive first (cost 0); rows at 2.8 and 5.3 days stock out via late alt-supplier (195000). I bounded the supplier branch to inventory-days < 8 and widened alert-planner (always on time, 35000) to medium risk below 6 days.\", \"source\": \"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (>= (risk-rank risk-level) (risk-rank 'medium)) (< inventory-days 6))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    ((and (>= (risk-rank risk-level) (risk-rank 'medium)) (< inventory-days 8))\\n     (list 'suggest-alternative-supplier))\\n    (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 127.28,
+ "attempts": 1,
+ "prompt_tokens": 1323,
+ "completion_tokens": 5424,
+ "reasoning_tokens": 5218,
+ "prompt_sha": "bde520f188ee4ca6",
+ "provider": "glm"
+}

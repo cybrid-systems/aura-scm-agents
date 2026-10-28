@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Adds the unused high-confidence gate, rejecting six of eight listed false-arbitration rows with confidence below 0.7 while retaining the magnitude, exposure, and frozen-horizon checks. This should materially reduce v1’s 0.714 false-arbitration rate with less recall risk than tightening exposure, preserving the business gate.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 175.23,
+ "attempts": 2,
+ "prompt_tokens": 2194,
+ "completion_tokens": 14896,
+ "reasoning_tokens": 14751,
+ "prompt_sha": "d3a1b5e304aac3da",
+ "provider": "minimax"
+}

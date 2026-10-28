@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"v1's 0.714 false-arbitration-rate comes from low-confidence changes passing the pct/exposure gates; 6 of 8 failure rows have confidence < 0.7 (0.44–0.67). Adding a high-confidence? condition to the and removes these false arbitrations, lowering the rate, while confidence ≥ 0.7 rows (recall) should stay near the 0.8 business gate.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 34.02,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 1427,
+ "reasoning_tokens": 1261,
+ "prompt_sha": "4f41b6b940ee33b9",
+ "provider": "glm"
+}

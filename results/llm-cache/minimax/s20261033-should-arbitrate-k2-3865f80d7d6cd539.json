@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add a high-confidence gate to the existing magnitude, exposure, and non-frozen checks. V1's recall is 1.0, but its false-arbitration rate is 0.714 (20 of 28), and six of the eight displayed false positives have confidence below 0.7. Filtering those rows should reduce false arbitration while retaining high-confidence positives and meeting the 0.8 recall gate.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (high-confidence? edi-change)\\n       (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))))\"}",
+ "finish": "stop",
+ "latency_s": 38.4,
+ "attempts": 1,
+ "prompt_tokens": 1097,
+ "completion_tokens": 3205,
+ "reasoning_tokens": 3043,
+ "prompt_sha": "3865f80d7d6cd539",
+ "provider": "minimax"
+}

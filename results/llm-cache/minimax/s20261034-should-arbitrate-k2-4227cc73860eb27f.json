@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add high-confidence gating and raise the exposure threshold to 1,000,000. v1 had 20/28 false arbitrations (FAR 0.714). This rejects all eight shown false positives: high-confidence failures had only 680,000/690,000 exposure, while exposures above 1,000,000 had confidence 0.60–0.67, preserving high-confidence, high-exposure positives for recall ≥0.8.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure) (and (> (abs (change-pct edi-change)) 0.15) (> inventory-exposure 1000000) (not (frozen-horizon? edi-change)) (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 55.44,
+ "attempts": 1,
+ "prompt_tokens": 1097,
+ "completion_tokens": 5758,
+ "reasoning_tokens": 5595,
+ "prompt_sha": "4227cc73860eb27f",
+ "provider": "minimax"
+}

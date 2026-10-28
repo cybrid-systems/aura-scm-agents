@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"6 of 8 false arbitrations show confidence < 0.7 (0.66, 0.44, 0.60, 0.67, 0.67, 0.61), so v1 arbitrates low-confidence EDI swings. Added a high-confidence? gate before the frozen check; this removes those false positives while retaining confident signals, cutting false-arbitration-rate from 0.714.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (high-confidence? edi-change)\\n       (not (frozen-horizon? edi-change))))\"}",
+ "finish": "stop",
+ "latency_s": 26.33,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 1084,
+ "reasoning_tokens": 919,
+ "prompt_sha": "3865f80d7d6cd539",
+ "provider": "glm"
+}

@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"False-arbitration-rate 0.714 dominates fitness loss; six of eight listed false rows have confidence <0.7. Added (high-confidence? edi-change) to the conjunction so low-confidence swings no longer arbitrate, keeping pct/exposure/frozen gates unchanged; recall headroom (1.0 vs 0.8 gate) absorbs any lost low-confidence true positives.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 41.13,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 1867,
+ "reasoning_tokens": 1711,
+ "prompt_sha": "5ff9b75faca830c6",
+ "provider": "glm"
+}

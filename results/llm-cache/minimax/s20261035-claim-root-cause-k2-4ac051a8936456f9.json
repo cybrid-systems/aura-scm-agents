@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Replace the demand-error condition with market mismatch or forecast bias alone. The shown failures include four mismatch rows and four positive-bias rows below 0.1, all truth demand-forecast-error but v1 returned unknown. Retaining supplier classifications preserves their recovered value while improving accuracy from 0.708 and recovery-rate from 0.607.\",\"source\":\"(define (claim-root-cause expedite-event) (cond ((and (edi-increase? expedite-event) (supplier-lead-time-miss? expedite-event)) 'supplier-delay) ((or (market-signal-mismatch? expedite-event) (forecast-bias? expedite-event)) 'demand-forecast-error) (else 'unknown)))\"}",
+ "finish": "stop",
+ "latency_s": 22.98,
+ "attempts": 1,
+ "prompt_tokens": 1223,
+ "completion_tokens": 3690,
+ "reasoning_tokens": 3544,
+ "prompt_sha": "4ac051a8936456f9",
+ "provider": "minimax"
+}

@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"34 alt-supplier switches at 45000 dominate cost; failure rows show transfers of 2-4 days beat covers of 6+ days, so the medium/high branch action becomes propose-internal-rebalance (6000). Low-cover rows (medium, 2.8 and 5.3 days) stock out, so the alert-planner branch is extended to medium risk below 6 days cover.\", \"source\": \"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (>= (risk-rank risk-level) (risk-rank 'medium)) (< inventory-days 6))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    ((>= (risk-rank risk-level) (risk-rank 'medium))\\n     (list 'propose-internal-rebalance))\\n    (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 130.78,
+ "attempts": 1,
+ "prompt_tokens": 1323,
+ "completion_tokens": 4592,
+ "reasoning_tokens": 4398,
+ "prompt_sha": "d80813c51db0b31d",
+ "provider": "glm"
+}

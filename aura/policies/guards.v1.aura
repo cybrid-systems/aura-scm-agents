@@ -1,0 +1,71 @@
+;; Domain guards (business invariants) for the gate, version guards.v1.
+;; Installed into the Aura WORKSPACE next to the policies (aura/workspace.aura), so they are
+;; queryable (query:calls / :def-use / current-source :workspace), versioned (mutate:rebind
+;; with a reason lands in the mutation log and the audit trail) and NOT hard-coded in Python.
+;; Every guard is (lambda (f rows) -> number of violations) over the candidate closure `f`,
+;; the policy's TRAIN rows and a synthetic domain grid (hold-out rows are never used).
+;; Registry entry: (name policy mode doc guard-fn)
+;;   mode "hard"       -> 0 violations required
+;;   mode "no-regress" -> no more violations than the incumbent (v1 is legacy and violates it)
+(define (guards-version) "guards.v1")
+(define (guard-critical-days) 2.0)
+(define (guard-action r) (if (pair? r) (car r) r))
+(define (guard-days-grid)              ; 0.0, 0.5, ..., 20.0 inventory days
+  (let loop ((d 20.0) (acc (list))) (if (< d 0.0) acc (loop (- d 0.5) (cons d acc)))))
+
+;; expedite-response: high risk must never map to monitor (any inventory level)
+(define (guard-exp-high-never-monitor f rows)
+  (let loop ((ds (guard-days-grid)) (n 0))
+    (if (null? ds) n
+        (loop (cdr ds) (if (eq? (guard-action (f 'high (car ds))) 'monitor) (+ n 1) n)))))
+;; expedite-response: below the critical inventory level, medium/high risk must alert the planner
+(define (guard-exp-critical-alert f rows)
+  (let loop ((ds (guard-days-grid)) (n 0))
+    (cond ((null? ds) n)
+          ((>= (car ds) (guard-critical-days)) (loop (cdr ds) n))
+          (else (loop (cdr ds) (+ n (if (eq? (guard-action (f 'high (car ds))) 'alert-planner) 0 1)
+                                     (if (eq? (guard-action (f 'medium (car ds))) 'alert-planner) 0 1)))))))
+;; should-arbitrate?: never arbitrate inside the frozen horizon (recall on frozen cases stays 0):
+;; frozen train rows plus a synthetic grid of frozen changes (large, confident, high exposure)
+(define (guard-frozen-grid)
+  (let loop ((ps (list -0.5 -0.3 -0.2 0.2 0.3 0.5)) (acc (list)))
+    (if (null? ps) acc
+        (loop (cdr ps)
+              (let inner ((xs (list 300000 900000 1600000)) (acc2 acc))
+                (if (null? xs) acc2
+                    (inner (cdr xs) (cons (hash "pct" (car ps) "exposure" (car xs) "frozen" #t "confidence" 0.95)
+                                          (cons (hash "pct" (car ps) "exposure" (car xs) "frozen" #t "confidence" 0.5) acc2)))))))))
+(define (guard-arb-frozen-never f rows)
+  (let loop ((rs (append rows (guard-frozen-grid))) (n 0))
+    (cond ((null? rs) n)
+          ((not (hash-ref (car rs) "frozen")) (loop (cdr rs) n))
+          (else (loop (cdr rs) (if (eq? (f (car rs) (hash-ref (car rs) "exposure")) #f) n (+ n 1)))))))
+;; claim-root-cause: never return 'unknown for a labelled row (truth is a real cause) that carries
+;; evidence (lead-time miss, forecast bias or market-signal mismatch): labelled train rows plus a
+;; synthetic evidence grid labelled by the domain rule (any forecast bias, including small ones,
+;; or a market-signal mismatch is a demand cause; an EDI increase with a lead-time miss is supplier)
+(define (guard-claim-row ei lt fb ba mm truth)
+  (hash "amount" 100000 "edi-increase" ei "lead-time-miss" lt "forecast-bias" fb "bias-amount" ba "market-mismatch" mm "truth" truth))
+(define (guard-claims-grid)
+  (let loop ((eis (list #t #f)) (acc (list)))
+    (if (null? eis) acc
+        (let ((ei (car eis)))
+          (loop (cdr eis)
+                (append (list (guard-claim-row ei #f #f 0.0 #t 'demand-forecast-error))
+                        (let bl ((bs (list 0.01 0.02 0.03 0.05 0.08 0.1 0.15 0.2 0.3)) (a2 (list)))
+                          (if (null? bs) a2 (bl (cdr bs) (cons (guard-claim-row ei #f #t (car bs) #f 'demand-forecast-error) a2))))
+                        (if ei (list (guard-claim-row #t #t #f 0.0 #f 'supplier-delay) (guard-claim-row #t #t #t 0.05 #f 'supplier-delay)) (list))
+                        acc))))))
+(define (guard-claims-evidence-not-unknown f rows)
+  (let loop ((rs (append rows (guard-claims-grid))) (n 0))
+    (if (null? rs) n
+        (let* ((c (car rs))
+               (labelled (not (eq? (hash-ref c "truth") 'unknown)))
+               (evidence (or (hash-ref c "lead-time-miss") (hash-ref c "forecast-bias") (hash-ref c "market-mismatch"))))
+          (loop (cdr rs) (if (and labelled evidence (eq? (f c) 'unknown)) (+ n 1) n))))))
+
+(define (guard-registry)
+  (list (list "exp.high-never-monitor" "expedite-response" "hard" "high risk must never map to monitor" guard-exp-high-never-monitor)
+        (list "exp.critical-alert" "expedite-response" "no-regress" "inventory-days < critical (2.0): medium/high risk must alert-planner" guard-exp-critical-alert)
+        (list "arb.frozen-never" "should-arbitrate?" "hard" "never arbitrate a frozen-horizon change (recall on frozen cases = 0)" guard-arb-frozen-never)
+        (list "claims.evidence-not-unknown" "claim-root-cause" "hard" "labelled rows with evidence are never 'unknown" guard-claims-evidence-not-unknown)))

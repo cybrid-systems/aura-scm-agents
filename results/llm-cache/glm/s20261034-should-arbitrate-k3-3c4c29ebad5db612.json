@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"All shown failures are false arbitrations: 6 of 8 have confidence<0.7, and the two high-confidence ones (exposure 680k/690k) sit just above the 500k floor. Adding a high-confidence? conjunct and raising the exposure threshold to 700000 trims the 0.714 false-arbitration-rate while retaining large, confident, unfrozen changes.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 700000)\\n       (high-confidence? edi-change)\\n       (not (frozen-horizon? edi-change))))\"}",
+ "finish": "stop",
+ "latency_s": 36.76,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 1666,
+ "reasoning_tokens": 1503,
+ "prompt_sha": "3c4c29ebad5db612",
+ "provider": "glm"
+}

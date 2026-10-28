@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add the existing high-confidence? condition. V1 produces 20 false arbitrations/28 (rate 0.714) despite recall 1.0. The added ≥0.7 gate rejects six shown false rows (confidence 0.44–0.67), reducing false arbitration while preserving magnitude, exposure, and frozen-horizon safeguards and targeting recall ≥0.8.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 126.19,
+ "attempts": 2,
+ "prompt_tokens": 2194,
+ "completion_tokens": 11487,
+ "reasoning_tokens": 11331,
+ "prompt_sha": "fb3ea689cf3ff24f",
+ "provider": "minimax"
+}

@@ -12,9 +12,10 @@
                            (policy-src "should-arbitrate?" "v1")
                            (policy-src "claim-root-cause" "v1")
                            (policy-src "expedite-response" "v1")
-                           (read-file (string-append POLICY-DIR "entry.aura"))))
+                           (read-file (string-append POLICY-DIR "entry.aura"))
+                           (read-file (string-append POLICY-DIR "guards.v1.aura"))))
   (if (procedure? (eval-current)) #t #t)
   (if (eq? (risk-rank (quote high)) 3) #t (error "workspace policies failed to install"))
-  (audit! "supervisor" "install-policies" "should-arbitrate?@v1 claim-root-cause@v1 expedite-response@v1"))
+  (audit! "supervisor" "install-policies" "should-arbitrate?@v1 claim-root-cause@v1 expedite-response@v1 guards.v1"))
 
 (install-workspace!)

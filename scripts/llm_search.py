@@ -268,7 +268,10 @@ def summarize(models, seeds, rows, runs):
                                 train=mlist(kv[f"{t}.train"]), holdout=mlist(kv[f"{t}.holdout"]), gap=float(kv[f"{t}.gap"]),
                                 evals=int(kv[f"{t}.evals"]), rejects=int(kv[f"{t}.rejects"]), src=kv[f"{t}.src"],
                                 reason=kv.get(f"{t}.reason", ""), gate_pass=kv.get(f"{t}.gate-pass"), proposals=kv.get(f"{t}.proposals"),
-                                attempts=kv.get(f"{t}.attempts", ""), base_id=kv.get(f"{t}.base-id", "")))
+                                attempts=kv.get(f"{t}.attempts", ""), base_id=kv.get(f"{t}.base-id", ""),
+                                guards=kv.get(f"{t}.guards", "-"), guard_violations=kv.get(f"{t}.guard-violations", ""),
+                                holdout_hard_fit=float(kv[f"{t}.holdout-hard-fit"]) if f"{t}.holdout-hard-fit" in kv else None,
+                                guard_rejects=guard_rejects(runs[s]["prov"], arm, pol)))
             for p in per:   # runs before the one-line emit fix cut multi-line LLM sources: recover them from the call rows
                 if not balanced(p["src"]):
                     a = next((x for x in runs[p["seed"]]["prov"] if x["id"] == str(p["id"]) and x["stage"].startswith("llm:")), None)
@@ -280,7 +283,15 @@ def summarize(models, seeds, rows, runs):
                             p["src"] = " ".join(r["source"].split())
             if per:
                 ho = [p["holdout_fit"] for p in per]
+                hh = [p["holdout_hard_fit"] for p in per if p["holdout_hard_fit"] is not None]
+                gr = {}
+                for p in per:
+                    for g, n in p["guard_rejects"].items():
+                        gr[g] = gr.get(g, 0) + n
                 table[(arm, pol)] = dict(per_seed=per, holdout_mean=round(statistics.mean(ho), 4),
+                                         holdout_hard_mean=round(statistics.mean(hh), 4) if hh else None,
+                                         holdout_hard_sd=round(statistics.pstdev(hh), 4) if len(hh) > 1 else (0.0 if hh else None),
+                                         guards_pass=sum(p["guards"] == "pass" for p in per), guard_rejects=gr,
                                          holdout_sd=round(statistics.pstdev(ho), 4) if len(ho) > 1 else 0.0,
                                          train_mean=round(statistics.mean(p["train_fit"] for p in per), 4),
                                          gap_mean=round(statistics.mean(p["gap"] for p in per), 4),
@@ -303,7 +314,7 @@ def summarize(models, seeds, rows, runs):
         for a in acc:
             for pol in POLS:
                 for p, v1 in zip(table[(f"{a}:{m}", pol)]["per_seed"], table[("v1", pol)]["per_seed"]):
-                    if p["train_fit"] > v1["train_fit"] + 1e-9 and gate_ok(pol, v1["train"], p["train"]):
+                    if p["train_fit"] > v1["train_fit"] + 1e-9 and gate_ok(pol, v1["train"], p["train"]) and p["guards"] in ("pass", "-"):
                         acc[a] += 1
                         acc_ho[a] += p["holdout_fit"] > v1["holdout_fit"] + 1e-9
         st = {}
@@ -326,6 +337,66 @@ def summarize(models, seeds, rows, runs):
     return arms, table, per_model
 
 
+def arm_key(arm, pol):
+    """policy key of an arm's attempts in the provenance rows"""
+    if arm in ("v1", "v2", "swarm"):
+        return pol
+    a, m = arm.split(":")
+    return f"{pol}@{m}" + ("+swarm" if a == "llm+swarm" else "")
+
+
+def guard_rejects(prov, arm, pol):
+    if arm in ("v1", "v2"):
+        return {}
+    key, out = arm_key(arm, pol), {}
+    for row in prov:
+        if row["policy"] == key and row["gate"] == "reject" and row["reason"] == "guard":
+            out[row["error"]] = out.get(row["error"], 0) + 1
+    return out
+
+
+def paired_stats(a, b, n_boot=10000, seed=7):
+    """paired differences a-b over seeds: mean, 95% bootstrap CI (percentile) and the exact
+    two-sided sign-flip permutation p-value (all 2^n sign patterns for n <= 16)."""
+    import itertools, random
+    d = [x - y for x, y in zip(a, b)]
+    n = len(d)
+    if n == 0:
+        return None
+    mean = statistics.mean(d)
+    R = random.Random(seed)
+    boots = sorted(statistics.mean(R.choice(d) for _ in range(n)) for _ in range(n_boot))
+    lo, hi = boots[int(0.025 * n_boot)], boots[int(0.975 * n_boot) - 1]
+    if all(abs(x) < 1e-12 for x in d):
+        p = 1.0
+    else:
+        obs, ext, tot = abs(sum(d)), 0, 0
+        for signs in itertools.product((1, -1), repeat=n):
+            tot += 1
+            ext += abs(sum(s * x for s, x in zip(signs, d))) >= obs - 1e-12
+        p = ext / tot
+    wins = sum(x > 1e-9 for x in d); losses = sum(x < -1e-9 for x in d)
+    return dict(n=n, mean_diff=round(mean, 4), ci95=[round(lo, 4), round(hi, 4)], p_perm=round(p, 4),
+                wins=wins, ties=n - wins - losses, losses=losses)
+
+
+def significance(models, table):
+    out = {}
+    for m in models:
+        for pol in POLS:
+            ls = table.get((f"llm+swarm:{m}", pol)); sw = table.get(("swarm", pol)); lo = table.get((f"llm:{m}", pol))
+            if not (ls and sw and lo):
+                continue
+            hl = lambda t: [p["holdout_fit"] for p in t["per_seed"]]
+            out[f"{m}|{pol}|vs-swarm"] = paired_stats(hl(ls), hl(sw))
+            out[f"{m}|{pol}|vs-llm-only"] = paired_stats(hl(ls), hl(lo))
+            if ls.get("holdout_hard_mean") is not None:
+                hh = lambda t: [p["holdout_hard_fit"] for p in t["per_seed"]]
+                out[f"{m}|{pol}|vs-swarm|hard"] = paired_stats(hh(ls), hh(sw))
+                out[f"{m}|{pol}|vs-llm-only|hard"] = paired_stats(hh(ls), hh(lo))
+    return out
+
+
 def write_outputs(args, models, seeds, rows, runs, arms, table, per_model, out_dir):
     first = seeds[0]
     kv0 = runs[first]["kv"]
@@ -336,6 +407,9 @@ def write_outputs(args, models, seeds, rows, runs, arms, table, per_model, out_d
                                   flakes=runs[s]["kv"].get("llm.flakes"), rejects=runs[s]["kv"].get("llm.rejects"),
                                   swarm_fingerprint=runs[s]["kv"].get("fingerprint")) for s in seeds},
                arms={f"{a}|{p}": v for (a, p), v in table.items()}, models=per_model, commits=commits,
+               significance=significance(models, table),
+               guards=dict(version=kv0.get("guards.version"), registry=kv0.get("guards.registry"), baseline_v1=kv0.get("guards.baseline"),
+                           rejects_per_seed={str(s): runs[s]["kv"].get("llm.guard-rejects") for s in seeds}),
                audit_trail=runs[first]["trail"])
     (out_dir / "llm-search.json").write_text(json.dumps(res, indent=1, ensure_ascii=False))
     with open(out_dir / "llm-search-provenance.jsonl", "w") as fh:
@@ -364,8 +438,8 @@ def write_outputs(args, models, seeds, rows, runs, arms, table, per_model, out_d
          f"Models {', '.join(models)}; seeds {', '.join(map(str, seeds))}; K={args.k} proposals per policy per seed; "
          f"fibers N={args.n}; search (first seed) {kv0.get('search.config')}; every seed reseeds the swarm (SCM_SEARCH_SEED) and has its own LLM samples. Selection uses the TRAIN rows only; hold-out = "
          "120 EDI changes / 96 claims / 80 risk events from an independent seed.", "",
-         "| policy | arm | hold-out fitness (mean ± sd) | train fitness | gap train−hold-out | hold-out metrics (first seed) | evals | gate reject rate |",
-         "|---|---|---|---|---|---|---|---|"]
+         "| policy | arm | hold-out fitness (mean ± sd) | train fitness | gap train−hold-out | hard hold-out (claims) | guards pass (seeds) | guard rejects | hold-out metrics (first seed) | evals | gate reject rate |",
+         "|---|---|---|---|---|---|---|---|---|---|---|"]
     for pol in POLS:
         for arm in arms:
             v = table.get((arm, pol))
@@ -374,9 +448,21 @@ def write_outputs(args, models, seeds, rows, runs, arms, table, per_model, out_d
             p0 = v["per_seed"][0]
             ev = "-" if arm in ("v1", "v2") else f"{v['evals_mean']:.0f}"
             rj = "-" if arm in ("v1", "v2") else f"{v['reject_rate']:.3f}"
+            hard = f"{f4(v['holdout_hard_mean'])} ± {f4(v['holdout_hard_sd'])}" if v.get("holdout_hard_mean") is not None else "-"
+            grj = ", ".join(f"{g} {n}" for g, n in sorted(v["guard_rejects"].items())) or "0"
             L.append(f"| {pol} | {arm} | {f4(v['holdout_mean'])} ± {f4(v['holdout_sd'])} | {f4(v['train_mean'])} | {f4(v['gap_mean'])} | "
+                     f"{hard} | {v['guards_pass']}/{len(v['per_seed'])} | {grj} | "
                      f"{';'.join(str(int(x)) if x == int(x) and abs(x) >= 1 else str(x) for x in p0['holdout'])} | {ev} | {rj} |")
+    sig = significance(models, table)
     L += ["", "Metrics: " + "; ".join(f"{p}: {', '.join(MNAMES[p])}" for p in POLS), "",
+          f"Guards {kv0.get('guards.version')}: {kv0.get('guards.registry')}; v1 baseline violations {kv0.get('guards.baseline')}.", "",
+          "## Significance (paired over seeds, hold-out fitness)", "",
+          "| model | policy | comparison | mean diff | 95% bootstrap CI | sign-flip p | wins/ties/losses |", "|---|---|---|---|---|---|---|"]
+    for k, v in sig.items():
+        if v:
+            m_, pol_, cmp_ = k.split("|", 2)
+            L.append(f"| {m_} | {pol_} | LLM+swarm {cmp_.replace('|hard', ' (hard hold-out)')} | {v['mean_diff']:+.4f} | [{v['ci95'][0]:+.4f}, {v['ci95'][1]:+.4f}] | {v['p_perm']} | {v['wins']}/{v['ties']}/{v['losses']} |")
+    L += ["",
           "## Per model", "",
           "| model | calls | valid (parse ok) | gate pass | input tok | output tok (reasoning) | latency mean / p50 / max s | list-price USD | accepted LLM-only / LLM+swarm | USD per accepted LLM-only / LLM+swarm | evals per accepted LLM+swarm |",
           "|---|---|---|---|---|---|---|---|---|---|---|"]
@@ -400,7 +486,7 @@ def write_outputs(args, models, seeds, rows, runs, arms, table, per_model, out_d
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--models", default="glm,minimax")
-    ap.add_argument("--seeds", default="20261028,20261029,20261030")
+    ap.add_argument("--seeds", default=",".join(str(20261028 + i) for i in range(8)))
     ap.add_argument("--k", type=int, default=4)
     ap.add_argument("--n", type=int, default=8, help="fibers per wave")
     ap.add_argument("--reps", type=int, default=5)
@@ -412,6 +498,9 @@ def main():
     ap.add_argument("--cache", default=str(REPO / "results/llm-cache"))
     ap.add_argument("--small", action="store_true", help="tiny search budgets (tests)")
     ap.add_argument("--reanalyze", action="store_true", help="re-summarize the last run without calling the LLM or Aura")
+    ap.add_argument("--phase", default="all", choices=["all", "collect", "aura"], help="collect = LLM calls only (cached); aura = reuse llm-search-rows.json")
+    ap.add_argument("--parallel", type=int, default=1, help="Aura seed runs in parallel (results do not depend on it)")
+    ap.add_argument("--dry-run", action="store_true", help="count cache hits / misses and exit")
     args = ap.parse_args()
     for f in args.env_file:
         llm_client.load_env_file(f)
@@ -430,22 +519,43 @@ def main():
         write_outputs(args, models, seeds, rows, runs, arms, table, per_model, out_dir)
         print(f"re-analysed -> {out_dir}/llm-search.md")
         return 0
-    ctx = context(args.timeout)
-    t0 = time.time()
-    rows = collect(models, seeds, args.k, ctx, Path(args.cache), args.max_tokens, args.workers)
-    print(f"llm: {len(rows)} proposals in {time.time() - t0:.0f}s", flush=True)
-    (out_dir / "llm-search-rows.json").write_text(json.dumps(rows, ensure_ascii=False, indent=0))
+    if args.phase == "aura":
+        rows = [r for r in json.loads((out_dir / "llm-search-rows.json").read_text()) if r["model"] in models and r["seed"] in seeds]
+    else:
+        ctx = context(args.timeout)
+        if args.dry_run:
+            hit = miss = 0
+            for m in models:
+                for sd in seeds:
+                    for p in POLS:
+                        for k in range(1, args.k + 1):
+                            h = hashlib.sha256(json.dumps(messages(p, ctx[p], sd, k), sort_keys=True).encode()).hexdigest()[:16]
+                            ok = (Path(args.cache) / m / f"s{sd}-{PFILE[p]}-k{k}-{h}.json").exists()
+                            hit += ok; miss += not ok
+            print(f"cache hits {hit}, misses {miss}")
+            return 0
+        t0 = time.time()
+        rows = collect(models, seeds, args.k, ctx, Path(args.cache), args.max_tokens, args.workers)
+        print(f"llm: {len(rows)} proposals in {time.time() - t0:.0f}s", flush=True)
+        (out_dir / "llm-search-rows.json").write_text(json.dumps(rows, ensure_ascii=False, indent=0))
+        if args.phase == "collect":
+            return 0
     knobs = {"SCM_SEARCH_N": str(args.n), "SCM_EVAL_REPS": str(args.reps)}
     if args.small:
         knobs.update(SCM_PSO_GENS="2", SCM_ACO_ITERS="2", SCM_EVAL_REPS="1")
     runs = {}
-    for i, s in enumerate(seeds):
+    def one(i_s):
+        i, s = i_s
         r = run_aura(main_src(models, i == 0), props_file(models, [x for x in rows if x["seed"] == s]),
                      dict(knobs, SCM_SEARCH_SEED=str(s)), args.timeout, f"llm{i}")
         print(f"seed {s}: rc={r['rc']} {r['wall_s']}s evals={r['kv'].get('llm.evals-total')} done={r['kv'].get('done')}", flush=True)
-        if r["rc"] != 0 or r["kv"].get("done") != "ok":
-            raise SystemExit(f"aura run failed for seed {s}: {r['stderr_tail']}")
-        runs[s] = r
+        return s, r
+    with cf.ThreadPoolExecutor(max_workers=max(1, args.parallel)) as ex:
+        for s, r in ex.map(one, list(enumerate(seeds))):
+            runs[s] = r
+    bad = [s for s in seeds if runs[s]["rc"] != 0 or runs[s]["kv"].get("done") != "ok"]
+    if bad:
+        raise SystemExit(f"aura run failed for seeds {bad}: {[runs[s]['stderr_tail'] for s in bad]}")
     arms, table, per_model = summarize(models, seeds, rows, runs)
     write_outputs(args, models, seeds, rows, runs, arms, table, per_model, out_dir)
     print(f"wrote {out_dir}/llm-search.md")

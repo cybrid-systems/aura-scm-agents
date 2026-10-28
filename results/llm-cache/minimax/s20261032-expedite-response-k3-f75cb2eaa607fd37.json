@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Replace the supplier branch with alert-planner: v1's 34 switches cost 1.53M and accompany all four stockouts (600K). Premium freight is cheaper at 35K and always arrives in time, so projected cost falls to 1.225M with zero stockouts, improving cost and the stockout gate.\",\"source\":\"(define (expedite-response risk-level inventory-days)\\n  (cond\\n    ((and (>= (risk-rank risk-level) (risk-rank 'high))\\n          (< inventory-days 5))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    ((>= (risk-rank risk-level) (risk-rank 'medium))\\n     (list 'alert-planner 'immediate-expedite-review))\\n    (else (list 'monitor))))\"}",
+ "finish": "stop",
+ "latency_s": 134.53,
+ "attempts": 2,
+ "prompt_tokens": 2938,
+ "completion_tokens": 14782,
+ "reasoning_tokens": 14607,
+ "prompt_sha": "f75cb2eaa607fd37",
+ "provider": "minimax"
+}

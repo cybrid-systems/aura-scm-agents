@@ -202,6 +202,26 @@
 (define (p-v2s p) (nth p 12)) (define (p-dec p) (nth p 13))
 (define (policy-by-name n) (let loop ((ps POLICIES)) (if (string=? (p-name (car ps)) n) (car ps) (loop (cdr ps)))))
 
+;; ---------------------------------------------------------------- domain guards (business invariants)
+;; The guards themselves are workspace EDSL defines (aura/policies/guards.v1.aura, installed by
+;; aura/workspace.aura): (guard-registry) -> (name policy mode doc fn).  Here only the plumbing:
+;; which rows a guard sees (TRAIN rows; the guard adds its own synthetic domain grid), the
+;; incumbent baseline for "no-regress" guards, and per-guard reject counters.
+(define (base-pol key) (let loop ((cs (string->list key)) (acc (list)))
+                         (if (or (null? cs) (char=? (car cs) #\@)) (list->string (reverse acc)) (loop (cdr cs) (cons (car cs) acc)))))
+;; "name=violations" for every guard of the policy (coordinator reporting)
+(define (guards-detail pol f) (join-with ";" (map (lambda (g) (format "~a=~a" (nth g 0) (guard-viol g f pol))) (guards-of pol))))
+(define (guards-baseline! p f)
+  (for-each (lambda (g) (hash-set! GUARD-BASE (nth g 0) (guard-viol g f (p-name p)))) (guards-of (p-name p))))
+;; the templates v1/v2 are the baselines and are scored without guards (v1 is legacy and may
+;; violate one); the coordinator flips this only between batches, workers only read it
+(define GUARDS-ON (not (equal? (getenv "SCM_GUARDS") "0")))
+(define GUARDS-WANTED GUARDS-ON)
+;; repro switch for the Aura bug: run the guards inside the worker fiber bodies (aborts on e6f)
+(define GUARDS-IN-FIBERS (equal? (getenv "SCM_GUARDS_IN_FIBERS") "1"))
+;; secondary selection key on fitness ties: the smaller policy (count of "(" and "'"), i.e. Occam
+(define (src-size src) (count-if (lambda (c) (or (char=? c #\() (char=? c #\'))) (string->list src)))
+
 ;; ---------------------------------------------------------------- worker: one individual, one fiber
 ;; Returns one string message "id|gate|reason|fitness|m1,m2,..|eval-ms|overlay-pending".
 (define (quoted-number? src)
@@ -249,13 +269,15 @@
   (try
     (let* ((s1 (try (call1 (p-smoke p) f) (catch (e) #f)))
            (sok (or s1 (try (call1 (p-smoke p) f) (catch (e) #f)) (try (call1 (p-smoke p) f) (catch (e) #f)))))
-      (if (not sok)
-          (list "reject" "type" 0 (list) "" 0)
+      (let ((gf (if (and sok GUARDS-ON (or (= SEARCH-N 0) GUARDS-IN-FIBERS)) (guards-fail (base-pol (p-name p)) f) #f)))
+      (cond ((not sok) (list "reject" "type" 0 (list) "" 0))
+            (gf (list "reject" "guard" 0 (list) gf 0))
+            (else
           (let loop ((k 0) (acc (list)))
             (if (>= k (max 3 EVAL-REPS))
                 (let* ((m (mode-of acc)) (flk (+ (if s1 0 1) (count-if (lambda (x) (not (equal? x m))) acc))))
                   (list "pass" "ok" (call1 (p-fit p) m) m "" flk))
-                (loop (+ k 1) (cons (call1 (p-mf p) f) acc))))))
+                (loop (+ k 1) (cons (call1 (p-mf p) f) acc))))))))
     (catch (e) (list "reject" "runtime" 0 (list) (clean-err e) 0))))
 (define (score-tries p f tries)
   (let ((r (score-once p f)))
@@ -275,7 +297,7 @@
 (define NEXT-ID 0)
 (define EVALS 0)
 (define CACHE-HITS 0)
-(define REJECTS (hash "parse" 0 "type" 0 "type-lint" 0 "runtime" 0))
+(define REJECTS (hash "parse" 0 "type" 0 "type-lint" 0 "runtime" 0 "guard" 0))
 (define NOISY 0)
 (define NOISY-REJECTED 0)
 (define CLEAN-REJECTED 0)
@@ -328,7 +350,9 @@
     (if (string=? gate "pass")
         (begin
           (hash-set! SRC-CACHE (nth c 5) fit)
-          (if (or (not (hash-has-key? BEST pol)) (> fit (car (hash-ref BEST pol))))
+          (if (or (not (hash-has-key? BEST pol)) (> fit (+ (car (hash-ref BEST pol)) 1e-9))
+                  (and (> fit (- (car (hash-ref BEST pol)) 1e-9))
+                       (< (src-size (nth c 5)) (src-size (nth (hash-ref CANDS (nth (hash-ref BEST pol) 1)) 5)))))
               (hash-set! BEST pol (list fit id ms EVALS)) #f)
           (if (and (hash-has-key? V2FIT pol) (not (hash-has-key? REACHED-V2 pol)) (>= fit (hash-ref V2FIT pol)))
               (hash-set! REACHED-V2 pol EVALS) #f)
@@ -336,6 +360,7 @@
         (begin
           (hash-set! SRC-CACHE (nth c 5) -1000.0)
           (hinc! REJECTS reason 1)
+          (if (string=? reason "guard") (hinc! GUARD-REJ err 1) #f)
           (hinc! KREJ pol 1)
           (if (string=? noise "none") (set! CLEAN-REJECTED (+ CLEAN-REJECTED 1)) (set! NOISY-REJECTED (+ NOISY-REJECTED 1)))))
     ;; provenance: every attempt
@@ -343,6 +368,16 @@
                          (join-with ";" (nth c 3)) noise gate reason (r4 fit) (join-with ";" ms) ems err))
     (list id gate fit)))
 
+;; domain guards for fiber-scored candidates run here, on the coordinator: calling the guard
+;; EDSL (workspace closures over synthetic grids) from parallel fiber bodies aborts or returns
+;; Void/Bool where an Int is expected on e6f (repro: SCM_GUARDS_IN_FIBERS=1 SCM_SEARCH_N=2).  Guards are
+;; deterministic, so the verdict is the same as in the serial path (score-once) for every N.
+(define (guard-post m cc)
+  (let ((parts (split-on m "|")))
+    (if (and GUARDS-ON (not GUARDS-IN-FIBERS) (string=? (nth parts 1) "pass") (string=? (nth cc 0) "ok"))
+        (let* ((id (msg-id m)) (gf (guards-fail (base-pol (nth (hash-ref CANDS id) 0)) (nth cc 1))))
+          (if gf (format "~a|reject|guard|0||~a|~a|~a|~a" id (nth parts 5) (nth parts 6) gf (if (> (length parts) 8) (nth parts 8) 0)) m))
+        m)))
 ;; evaluate a batch: serial (N=0) or waves of N fibers; messages applied in id order
 (define (msg-id m) (string->number (car (split-on m "|"))))
 (define (run-batch ids)
@@ -364,7 +399,8 @@
                                       wave ccs))
                            (got (map (lambda (x) (channel:recv RCH)) wave)))
                       (for-each (lambda (f) (fiber:join f)) fids)
-                      (loop (drop-n rest SEARCH-N) (append acc got))))))))
+                      (loop (drop-n rest SEARCH-N)
+                            (append acc (map (lambda (m) (guard-post m (cdr (assv (msg-id m) (map cons wave ccs))))) got)))))))))
     (map apply-msg! (list-sort (lambda (a b) (< (msg-id a) (msg-id b))) msgs))))
 
 ;; ---------------------------------------------------------------- PSO stage (continuous knobs)
@@ -433,9 +469,12 @@
          (_tr (tr "_e")) (_e (eval-current))
          (_tr (tr "m1")) (m1 (call0 (p-mw p)))
          (_tr (tr "tc")) (tc (try (typecheck-current) (catch (e) (list 'tc-error e))))
-         (_tr (tr "gate")) (gate (cond ((string=? pol "should-arbitrate?") (g-arbitration (m-hash p m0) (m-hash p m1)))
-                     ((string=? pol "claim-root-cause") (g-claims (m-hash p m0) (m-hash p m1)))
-                     (else (g-expedite (m-hash p m0) (m-hash p m1))))))
+         (_tr (tr "gate")) (gfail (ws-guards-fail pol))
+         (gate (and (not gfail)
+                    (cond ((string=? pol "should-arbitrate?") (g-arbitration (m-hash p m0) (m-hash p m1)))
+                          ((string=? pol "claim-root-cause") (g-claims (m-hash p m0) (m-hash p m1)))
+                          (else (g-expedite (m-hash p m0) (m-hash p m1)))))))
+    (emit (string-append "commit." pol ".guards") (if gfail (string-append "fail:" gfail) "pass"))
     (emit (string-append "commit." pol ".v1") (join-with ";" m0))
     (emit (string-append "commit." pol ".v2file") (join-with ";" mv2))
     (emit (string-append "commit." pol ".v1-restored-after-v2") (equal? m0 m0b))
@@ -480,18 +519,30 @@
         gate))))
 (define (m-hash p m) (let ((h (hash))) (for-each (lambda (k v) (hash-set! h k v)) (p-mnames p) m) h))
 
+;; workspace binding of a policy (after eval-current), for guard checks at commit time
+(define (emit-guard-info!)
+  (emit "guards.version" (guards-version))
+  (emit "guards.registry" (join-with ";" (map (lambda (g) (format "~a/~a/~a" (nth g 0) (nth g 1) (nth g 2))) (guard-registry))))
+  (emit "guards.baseline" (join-with ";" (map (lambda (k) (format "~a=~a" k (hash-ref GUARD-BASE k))) (list-sort string<? (hash-keys GUARD-BASE)))))
+  (emit "guards.rejects" (join-with ";" (map (lambda (k) (format "~a=~a" k (hash-ref GUARD-REJ k))) (list-sort string<? (hash-keys GUARD-REJ))))))
+
 ;; ---------------------------------------------------------------- driver
 (define (template-check! p)
-  ;; template-v1 / template-v2 scored privately (same path as every candidate)
+  ;; template-v1 / template-v2 scored privately (same path as every candidate, guards off)
+  (set! GUARDS-ON #f)
   (let* ((i1 (new-cand! p "v1" (p-v1c p) (p-v1s p) "none"))
          (i2 (new-cand! p "v2" (p-v2c p) (p-v2s p) "none"))
+         (_g (guards-baseline! p (nth (compile-candidate (nth (hash-ref CANDS i1) 5)) 1)))
          (m1 (split-on (nth (split-on (eval-candidate p i1 (nth (hash-ref CANDS i1) 5) #f) "|") 4) ","))
          (r2 (split-on (eval-candidate p i2 (nth (hash-ref CANDS i2) 5) #f) "|")))
     (hash-set! V2FIT (p-name p) (string->number (nth r2 3)))
     (emit (string-append "tmpl." (p-name p) ".v1") (join-with ";" m1))
     (emit (string-append "tmpl." (p-name p) ".v1-fit") (r4 (call1 (p-fit p) (map string->number m1))))
     (emit (string-append "tmpl." (p-name p) ".v2") (join-with ";" (split-on (nth r2 4) ",")))
-    (emit (string-append "tmpl." (p-name p) ".v2-fit") (r4 (string->number (nth r2 3))))))
+    (emit (string-append "tmpl." (p-name p) ".v2-fit") (r4 (string->number (nth r2 3))))
+    (emit (string-append "tmpl." (p-name p) ".v1-guards") (guards-detail (p-name p) (nth (compile-candidate (nth (hash-ref CANDS i1) 5)) 1)))
+    (set! GUARDS-ON GUARDS-WANTED)
+    (emit (string-append "tmpl." (p-name p) ".v2-guards") (guards-detail (p-name p) (nth (compile-candidate (nth (hash-ref CANDS i2) 5)) 1)))))
 
 (define (worst-pass-id pol)
   (let loop ((ids (iota NEXT-ID)) (w #f) (wf 1000000.0))
@@ -528,7 +579,8 @@
     (emit "search.wall-ms" (- (monotonic-ms) t0)))
   (emit "search.evals" EVALS)
   (emit "search.cache-hits" CACHE-HITS)
-  (emit "search.rejects" (format "parse=~a type=~a type-lint=~a runtime=~a" (hash-ref REJECTS "parse") (hash-ref REJECTS "type") (hash-ref REJECTS "type-lint") (hash-ref REJECTS "runtime")))
+  (emit "search.rejects" (format "parse=~a type=~a type-lint=~a runtime=~a guard=~a" (hash-ref REJECTS "parse") (hash-ref REJECTS "type") (hash-ref REJECTS "type-lint") (hash-ref REJECTS "runtime") (hash-ref REJECTS "guard")))
+  (emit-guard-info!)
   (emit "search.noisy" (format "injected=~a rejected=~a clean-rejected=~a" NOISY NOISY-REJECTED CLEAN-REJECTED))
   (emit "search.overlay" (fiber:overlay-report))
   (emit "search.overlay-max-pending" MAX-PENDING)

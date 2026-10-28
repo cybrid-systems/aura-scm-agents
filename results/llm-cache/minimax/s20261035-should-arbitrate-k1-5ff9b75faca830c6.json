@@ -1,0 +1,12 @@
+{
+ "model": "MiniMax-M3.1-Flash",
+ "text": "{\"reason\":\"Add a high-confidence gate and tighten change/exposure cutoffs to >0.20 and >1,000,000. V1 has 20 false arbitrations (FAR 0.714) despite recall 1.0; the stricter rule rejects all eight examples, including -0.428/1.3M at 0.66 and -0.428/0.69M at 0.91, while preserving recall >=0.8.\",\"source\":\"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.2)\\n       (> inventory-exposure 1000000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 76.36,
+ "attempts": 2,
+ "prompt_tokens": 2194,
+ "completion_tokens": 12083,
+ "reasoning_tokens": 11909,
+ "prompt_sha": "5ff9b75faca830c6",
+ "provider": "minimax"
+}

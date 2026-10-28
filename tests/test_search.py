@@ -75,8 +75,17 @@ class TestSearchE2E(unittest.TestCase):
             for row in r["prov"]:
                 if row["noise"] != "none":
                     self.assertEqual(row["gate"], "reject", row)
-                elif row["gate"] == "reject":
+                elif row["gate"] == "reject" and row["reason"] != "guard":
+                    # a clean candidate may only be rejected by a domain guard (a business invariant,
+                    # aura/policies/guards.v1.aura), never by the defect gates
                     self.fail(f"clean candidate rejected: {row}")
+
+    def test_guards_same_verdicts_serial_and_fibers(self):
+        # fiber path: guards run on the coordinator after the wave; serial path: inside score-once
+        g = lambda r: sorted((row["id"], row["error"]) for row in r["prov"] if row["reason"] == "guard")
+        self.assertEqual(g(self.serial), g(self.fiber))
+        self.assertGreater(len(g(self.fiber)), 0)
+        self.assertEqual(self.fiber["kv"]["guards.version"], "guards.v1")
 
     def test_provenance_for_every_attempt(self):
         self.assertEqual(len(self.fiber["prov"]), int(self.fiber["kv"]["search.evals"]))

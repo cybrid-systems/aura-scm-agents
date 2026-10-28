@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"All 20 v1 errors are false arbitrations (rate 0.714); sample rows show needed=#f at confidence 0.44–0.67, plus one at 0.83 with exposure 680000. Adding a high-confidence gate removes most false positives, and raising the exposure floor to 700000 drops the borderline 0.83/680000 row while recall stays ≥0.8, restoring fitness.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 700000)\\n       (high-confidence? edi-change)\\n       (not (frozen-horizon? edi-change))))\"}",
+ "finish": "stop",
+ "latency_s": 42.33,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 1486,
+ "reasoning_tokens": 1319,
+ "prompt_sha": "15c8d30f592d9ec4",
+ "provider": "glm"
+}

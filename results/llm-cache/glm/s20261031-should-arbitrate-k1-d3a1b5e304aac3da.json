@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"All 20 failures are false arbitrations (rate 0.714); 6 of 8 example rows have confidence < 0.7, so a confidence gate filters them without touching exposure/pct logic, keeping recall near 1.0 for the 0.7+ positives.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (high-confidence? edi-change)\\n       (not (frozen-horizon? edi-change))))\"}",
+ "finish": "stop",
+ "latency_s": 21.42,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 734,
+ "reasoning_tokens": 598,
+ "prompt_sha": "d3a1b5e304aac3da",
+ "provider": "glm"
+}

@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"All example false arbitrations fire on low-confidence events (0.44-0.91; six below 0.7), so I add a high-confidence? gate to the AND. Recall was already 1.0, so filtering low-confidence signals cuts false-arbitration-rate toward ~0.64 without dropping recall below the 0.8 gate.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 500000)\\n       (not (frozen-horizon? edi-change))\\n       (high-confidence? edi-change)))\"}",
+ "finish": "stop",
+ "latency_s": 28.4,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 1060,
+ "reasoning_tokens": 910,
+ "prompt_sha": "b4739523ee60445f",
+ "provider": "glm"
+}

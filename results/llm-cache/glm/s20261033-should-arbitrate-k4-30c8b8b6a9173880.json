@@ -1,0 +1,12 @@
+{
+ "model": "glm-5.3-flash",
+ "text": "{\"reason\": \"All shown failures are low-confidence moves (0.44-0.67) or sub-750k exposure; v1 ignores confidence. Added a confidence gate, waived only for extreme |pct|>0.4 to protect recall, and raised exposure to 750000. Fixes rows like pct=0.224 conf=0.44 and pct=0.194 exposure=680k, keeping -0.428-type moves arbitrable.\", \"source\": \"(define (should-arbitrate? edi-change inventory-exposure)\\n  (and (> (abs (change-pct edi-change)) 0.15)\\n       (> inventory-exposure 750000)\\n       (not (frozen-horizon? edi-change))\\n       (or (high-confidence? edi-change)\\n           (> (abs (change-pct edi-change)) 0.4))))\"}",
+ "finish": "stop",
+ "latency_s": 75.14,
+ "attempts": 1,
+ "prompt_tokens": 923,
+ "completion_tokens": 2800,
+ "reasoning_tokens": 2604,
+ "prompt_sha": "30c8b8b6a9173880",
+ "provider": "glm"
+}
