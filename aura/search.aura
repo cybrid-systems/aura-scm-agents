@@ -43,13 +43,10 @@
 (define (nth xs i) (if (= i 0) (car xs) (nth (cdr xs) (- i 1))))
 (define (index-of x xs) (let loop ((ys xs) (i 0)) (cond ((null? ys) -1) ((equal? x (car ys)) i) (else (loop (cdr ys) (+ i 1))))))
 (define (callp f . args) (apply f args))
-;; fixed-arity callers: rest-args lists are built wrongly in parallel fiber bodies on e6f
-;; (probes/rest-args-in-fibers.aura), so nothing on the worker path may be variadic.
-(define (call0 f) (f)) (define (call1 f a) (f a)) (define (call2 f a b) (f a b)) (define (call3 f a b c) (f a b c))
 (define (r4 x) (/ (round (* x 10000.0)) 10000.0))
 (define (join-with sep xs) (if (null? xs) "" (foldl (lambda (acc x) (string-append acc sep x)) (str (car xs)) (map str (cdr xs)))))
 (define (balanced? s)
-  ;; the parse gate does this itself: (eval "(lambda (a) (f a)") returns a procedure (see probes/eval-unbalanced.aura)
+  ;; `eval` still accepts an unbalanced (lambda ...) (aura#4736, reopened): probes/eval-lenient-parens.aura
   (let ((n (string-length s)))
     (let loop ((i 0) (d 0) (in-str #f))
       (if (= i n) (and (= d 0) (not in-str))
@@ -119,7 +116,7 @@
 ;; private closure instead of the workspace binding.
 (define (mf-arb f) (mf-arb-on f edi-history))
 (define (mf-arb-on f hist)
-  (let* ((rows (map (lambda (e) (cons e (call2 f e (hash-ref e "exposure")))) hist))
+  (let* ((rows (map (lambda (e) (cons e (f e (hash-ref e "exposure")))) hist))
          (flagged (count-if cdr rows))
          (needed (count-if (lambda (r) (hash-ref (car r) "needed")) rows))
          (tp (count-if (lambda (r) (and (cdr r) (hash-ref (car r) "needed"))) rows))
@@ -127,7 +124,7 @@
     (list flagged fp (ratio fp flagged) (ratio tp needed))))
 (define (mf-claims f) (mf-claims-on f claim-history))
 (define (mf-claims-on f hist)
-  (let* ((rows (map (lambda (c) (cons c (call1 f c))) hist))
+  (let* ((rows (map (lambda (c) (cons c (f c))) hist))
          (ok (count-if (lambda (r) (eq? (cdr r) (hash-ref (car r) "truth"))) rows))
          (recovered (sum-by (lambda (r) (if (and (eq? (cdr r) (hash-ref (car r) "truth")) (not (eq? (cdr r) 'unknown))) (hash-ref (car r) "amount") 0)) rows))
          (total (sum-by (lambda (r) (if (eq? (hash-ref (car r) "truth") 'unknown) 0 (hash-ref (car r) "amount"))) rows)))
@@ -151,10 +148,10 @@
 ;; the gate checks the output type/shape on EVERY back-test row (a defect in a rarely taken
 ;; branch, e.g. a string default, slips past a one-row smoke test)
 (define (all-ok? pred rows) (if (null? rows) #t (if (pred (car rows)) (all-ok? pred (cdr rows)) #f)))
-(define (smoke-arb f) (all-ok? (lambda (e) (boolean? (call2 f e (hash-ref e "exposure")))) edi-history))
-(define (smoke-claims f) (all-ok? (lambda (c) (sym-in? (call1 f c) (list "supplier-delay" "demand-forecast-error" "unknown"))) claim-history))
+(define (smoke-arb f) (all-ok? (lambda (e) (boolean? (f e (hash-ref e "exposure")))) edi-history))
+(define (smoke-claims f) (all-ok? (lambda (c) (sym-in? (f c) (list "supplier-delay" "demand-forecast-error" "unknown"))) claim-history))
 (define (smoke-exp f)
-  (all-ok? (lambda (h) (let ((r (call2 f (hash-ref h "level") (hash-ref h "days"))))
+  (all-ok? (lambda (h) (let ((r (f (hash-ref h "level") (hash-ref h "days"))))
                          (and (pair? r) (sym-in? (car r) (list "alert-planner" "suggest-alternative-supplier" "propose-internal-rebalance" "monitor")))))
            risk-history))
 
@@ -224,21 +221,15 @@
 
 ;; ---------------------------------------------------------------- worker: one individual, one fiber
 ;; Returns one string message "id|gate|reason|fitness|m1,m2,..|eval-ms|overlay-pending".
-(define (quoted-number? src)
-  (let loop ((cs (string->list src)) (prev #\space))
-    (cond ((null? cs) #f)
-          ((and (char=? prev #\") (char-numeric? (car cs))) #t)
-          (else (loop (cdr cs) (car cs))))))
 (define (compile-candidate src)
-  ;; parse gate + private compile.  Runs on the coordinator: string `eval` inside parallel
-  ;; fiber bodies deadlocks intermittently on e6f (see probes/eval-in-fibers-hang.aura), so
-  ;; workers only receive already-compiled closures.  The workspace AST is never touched.
-  (cond ((not (balanced? src)) (list "reject" "parse"))   ; `eval` is lenient about parens
-        ;; static literal-type lint: a type error inside a non-last `and` operand is swallowed
-        ;; at runtime (probes/and-swallows-type-error.aura), so a "0.17" string can pass smoke
-        ((quoted-number? src) (list "reject" "type-lint"))
-        (else (let ((f0 (try (eval (define->lambda src)) (catch (e) #f))))
-                (if (procedure? f0) (list "ok" f0) (list "reject" "parse"))))))
+  ;; parse gate + private compile on the coordinator; the workspace AST is never touched.
+  ;; Paren pre-check kept: on d54b2117d `eval` raises a parse-error for an unbalanced expression,
+  ;; but an unbalanced `(lambda ...` still evaluates to a procedure (aura#4736, reopened).
+  ;; The quoted-number lint is gone: a type error in a non-last `and` operand is now raised
+  ;; (aura#4735), so a quoted threshold fails the smoke gate ("type").
+  (if (not (balanced? src)) (list "reject" "parse")
+      (let ((f0 (try (eval (define->lambda src)) (catch (e) #f))))
+        (if (procedure? f0) (list "ok" f0) (list "reject" "parse")))))
 
 (define (clean-err e) (list->string (map (lambda (c) (if (or (char=? c #\|) (char=? c #\newline)) #\/ c)) (string->list (format "~a" e)))))
 (define (eval-candidate p id src pre)   ; pre: precompiled (compile-candidate src) or #f
@@ -267,8 +258,8 @@
             (nth res 4) (nth res 5))))
 (define (score-once p f)
   (try
-    (let* ((s1 (try (call1 (p-smoke p) f) (catch (e) #f)))
-           (sok (or s1 (try (call1 (p-smoke p) f) (catch (e) #f)) (try (call1 (p-smoke p) f) (catch (e) #f)))))
+    (let* ((s1 (try ((p-smoke p) f) (catch (e) #f)))
+           (sok (or s1 (try ((p-smoke p) f) (catch (e) #f)) (try ((p-smoke p) f) (catch (e) #f)))))
       (let ((gf (if (and sok GUARDS-ON (or (= SEARCH-N 0) GUARDS-IN-FIBERS)) (guards-fail (base-pol (p-name p)) f) #f)))
       (cond ((not sok) (list "reject" "type" 0 (list) "" 0))
             (gf (list "reject" "guard" 0 (list) gf 0))
@@ -276,8 +267,8 @@
           (let loop ((k 0) (acc (list)))
             (if (>= k (max 3 EVAL-REPS))
                 (let* ((m (mode-of acc)) (flk (+ (if s1 0 1) (count-if (lambda (x) (not (equal? x m))) acc))))
-                  (list "pass" "ok" (call1 (p-fit p) m) m "" flk))
-                (loop (+ k 1) (cons (call1 (p-mf p) f) acc))))))))
+                  (list "pass" "ok" ((p-fit p) m) m "" flk))
+                (loop (+ k 1) (cons ((p-mf p) f) acc))))))))
     (catch (e) (list "reject" "runtime" 0 (list) (clean-err e) 0))))
 (define (score-tries p f tries)
   (let ((r (score-once p f)))
@@ -297,7 +288,7 @@
 (define NEXT-ID 0)
 (define EVALS 0)
 (define CACHE-HITS 0)
-(define REJECTS (hash "parse" 0 "type" 0 "type-lint" 0 "runtime" 0 "guard" 0))
+(define REJECTS (hash "parse" 0 "type" 0 "runtime" 0 "guard" 0))
 (define NOISY 0)
 (define NOISY-REJECTED 0)
 (define CLEAN-REJECTED 0)
@@ -314,9 +305,9 @@
 (define (new-cand! p stage cont choices noise)
   (set! NEXT-ID (+ NEXT-ID 1))
   (set! NOISE noise)
-  (let ((src (call2 (p-gen p) cont choices)))
+  (let ((src ((p-gen p) cont choices)))
     (set! NOISE "none")
-    (let* ((clean (call2 (p-gen p) cont choices))
+    (let* ((clean ((p-gen p) cont choices))
            (src2 (if (string=? noise "paren") (substring src 0 (- (string-length src) 1)) src))
            ;; a defect aimed at a condition the ant dropped leaves the source clean: count it as none
            (noise2 (if (and (not (string=? noise "none")) (string=? src2 clean)) "none" noise)))
@@ -356,7 +347,7 @@
               (hash-set! BEST pol (list fit id ms EVALS)) #f)
           (if (and (hash-has-key? V2FIT pol) (not (hash-has-key? REACHED-V2 pol)) (>= fit (hash-ref V2FIT pol)))
               (hash-set! REACHED-V2 pol EVALS) #f)
-          (front-add! pol (call1 (p-obj p) ms) id fit ms))
+          (front-add! pol ((p-obj p) ms) id fit ms))
         (begin
           (hash-set! SRC-CACHE (nth c 5) -1000.0)
           (hinc! REJECTS reason 1)
@@ -369,8 +360,9 @@
     (list id gate fit)))
 
 ;; domain guards for fiber-scored candidates run here, on the coordinator: calling the guard
-;; EDSL (workspace closures over synthetic grids) from parallel fiber bodies aborts or returns
-;; Void/Bool where an Int is expected on e6f (repro: SCM_GUARDS_IN_FIBERS=1 SCM_SEARCH_N=2).  Guards are
+;; EDSL (workspace closures over synthetic grids) from parallel fiber bodies aborted on e6f
+;; (aura#4747); on d54b2117d it no longer aborts but flips guard verdicts in 3/11 runs and hung
+;; 1/15 (repro: SCM_GUARDS_IN_FIBERS=1 SCM_SEARCH_N=2; #4747 reopened).  Guards are
 ;; deterministic, so the verdict is the same as in the serial path (score-once) for every N.
 (define (guard-post m cc)
   (let ((parts (split-on m "|")))
@@ -458,16 +450,16 @@
 (define (commit-one! p best-id worst-id)
   (let* ((pol (p-name p)) (c (hash-ref CANDS best-id)) (src (nth c 5))
          (fiber-m (nth (hash-ref BEST pol) 2))
-         (_tr (tr "s0")) (s0 (ast:snapshot)) (src0 (ws-src)) (m0 (call0 (p-mw p)))
+         (_tr (tr "s0")) (s0 (ast:snapshot)) (src0 (ws-src)) (m0 ((p-mw p)))
          ;; v2 from the policy FILE (template fidelity check), then back to v1
          (_tr (tr "_v2")) (_v2 (begin (mutate:rebind pol (policy-src pol "v2") "measure hand-written v2 (search baseline)") (eval-current)))
-         (_tr (tr "mv2")) (mv2 (call0 (p-mw p)))
+         (_tr (tr "mv2")) (mv2 ((p-mw p)))
          (_tr (tr "_r")) (_r (begin (ast:restore s0) (eval-current)))
-         (_tr (tr "m0b")) (m0b (call0 (p-mw p)))
+         (_tr (tr "m0b")) (m0b ((p-mw p)))
          (reason (format "swarm search (pso+aco, ~a fibers): best cand #~a fitness ~a after ~a evals" SEARCH-N best-id (r4 (car (hash-ref BEST pol))) (hg PEVALS pol 0)))
          (_tr (tr "rb")) (rb (try (mutate:rebind pol src reason) (catch (e) (list 'rebind-error e))))
          (_tr (tr "_e")) (_e (eval-current))
-         (_tr (tr "m1")) (m1 (call0 (p-mw p)))
+         (_tr (tr "m1")) (m1 ((p-mw p)))
          (_tr (tr "tc")) (tc (try (typecheck-current) (catch (e) (list 'tc-error e))))
          (_tr (tr "gate")) (gfail (ws-guards-fail pol))
          (gate (and (not gfail)
@@ -489,20 +481,20 @@
       (if (not gate) (begin (ast:restore s0) (eval-current)) #f)
       ;; rollback check A: commit the worst gate-passing candidate -> business gate must fail -> ast:restore
       (let* ((wsrc (nth (hash-ref CANDS worst-id) 5))
-             (s-pre (ast:snapshot)) (src-pre (ws-src)) (m-pre (call0 (p-mw p)))
+             (s-pre (ast:snapshot)) (src-pre (ws-src)) (m-pre ((p-mw p)))
              (_tr (tr "rbw")) (rbw (try (mutate:rebind pol wsrc "rollback drill: worst gated candidate") (catch (e) (list 'rebind-error e))))
-             (_tr (tr "_w")) (_w (eval-current)) (mw (call0 (p-mw p)))
+             (_tr (tr "_w")) (_w (eval-current)) (mw ((p-mw p)))
              (_tr (tr "gw")) (gw (cond ((string=? pol "should-arbitrate?") (g-arbitration (m-hash p m-pre) (m-hash p mw)))
                        ((string=? pol "claim-root-cause") (g-claims (m-hash p m-pre) (m-hash p mw)))
                        (else (g-expedite (m-hash p m-pre) (m-hash p mw)))))
              (_tr (tr "_x")) (_x (begin (ast:restore s-pre) (eval-current)))
-             (_tr (tr "m-post")) (m-post (call0 (p-mw p))) (src-post (ws-src))
+             (_tr (tr "m-post")) (m-post ((p-mw p))) (src-post (ws-src))
              ;; rollback check B: a structurally broken rebind must be refused and change nothing
              ;; (two closing parens dropped: a single missing trailing ')' is auto-closed by the parser)
              (_tr (tr "rbb")) (bsrc (substring src 0 (- (string-length src) 2)))
              (rbb (try (mutate:rebind pol bsrc "rollback drill: broken patch") (catch (e) (list 'rebind-error e))))
              (_tr (tr "_y")) (_y (eval-current))
-             (_tr (tr "m-post2")) (m-post2 (call0 (p-mw p))) (src-post2 (ws-src))
+             (_tr (tr "m-post2")) (m-post2 ((p-mw p))) (src-post2 (ws-src))
              ;; known leniency probe: one missing trailing ')' -- accepted? (restore afterwards either way)
              (_tr (tr "s-pre3")) (s-pre3 (ast:snapshot))
              (_tr (tr "rb1")) (rb1 (try (mutate:rebind pol (substring src 0 (- (string-length src) 1)) "probe: one paren short") (catch (e) (list 'rebind-error e))))
@@ -537,7 +529,7 @@
          (r2 (split-on (eval-candidate p i2 (nth (hash-ref CANDS i2) 5) #f) "|")))
     (hash-set! V2FIT (p-name p) (string->number (nth r2 3)))
     (emit (string-append "tmpl." (p-name p) ".v1") (join-with ";" m1))
-    (emit (string-append "tmpl." (p-name p) ".v1-fit") (r4 (call1 (p-fit p) (map string->number m1))))
+    (emit (string-append "tmpl." (p-name p) ".v1-fit") (r4 ((p-fit p) (map string->number m1))))
     (emit (string-append "tmpl." (p-name p) ".v2") (join-with ";" (split-on (nth r2 4) ",")))
     (emit (string-append "tmpl." (p-name p) ".v2-fit") (r4 (string->number (nth r2 3))))
     (emit (string-append "tmpl." (p-name p) ".v1-guards") (guards-detail (p-name p) (nth (compile-candidate (nth (hash-ref CANDS i1) 5)) 1)))
@@ -579,7 +571,7 @@
     (emit "search.wall-ms" (- (monotonic-ms) t0)))
   (emit "search.evals" EVALS)
   (emit "search.cache-hits" CACHE-HITS)
-  (emit "search.rejects" (format "parse=~a type=~a type-lint=~a runtime=~a guard=~a" (hash-ref REJECTS "parse") (hash-ref REJECTS "type") (hash-ref REJECTS "type-lint") (hash-ref REJECTS "runtime") (hash-ref REJECTS "guard")))
+  (emit "search.rejects" (format "parse=~a type=~a runtime=~a guard=~a" (hash-ref REJECTS "parse") (hash-ref REJECTS "type") (hash-ref REJECTS "runtime") (hash-ref REJECTS "guard")))
   (emit-guard-info!)
   (emit "search.noisy" (format "injected=~a rejected=~a clean-rejected=~a" NOISY NOISY-REJECTED CLEAN-REJECTED))
   (emit "search.overlay" (fiber:overlay-report))

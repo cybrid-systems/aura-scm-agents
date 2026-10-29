@@ -136,7 +136,7 @@ and a per-policy Pareto front of the raw objectives is kept next to it.
 table, global best, Pareto archive, the std/ant pheromone table and the std/pso swarm. It compiles each wave's candidates
 (`eval` of the define → closure), spawns N fibers and blocks in `channel:recv`. A worker fiber only does the following:
 `fiber:overlay-begin` → `fiber:overlay-define` of its closure (private, per-fiber COW overlay, aura#4715) → gate + score → `fiber:overlay-rollback` → `channel:send`
-of one string message. It never calls `set!` or `hash-set!` on shared data, because concurrent `hash-set!` and `set!` are unsafe on this build (aura#4730). The coordinator
+of one string message. It never calls `set!` or `hash-set!` on shared data, because a read-modify-write from parallel bodies is not atomic: concurrent `hash-set!` is memory-safe since aura#4730, but increments still lose ~55% (aura#4761). After an overlay commit, later `set!`s of that binding are also dropped (aura#4757). The coordinator
 applies the messages sorted by candidate id, so results are bit-identical for every N. Only the coordinator touches the
 workspace: it `mutate:rebind`s the winners (with a reason), checks the installed metrics equal the fiber's, then runs
 two rollback drills (a worse candidate, and a truncated source), using `ast:snapshot`/`ast:restore`.
@@ -170,9 +170,8 @@ claims no speed-up.
 ### Limitations
 * **No per-fiber workspace fork.** The overlay covers env bindings only. Candidates are therefore compiled with `eval` on the coordinator
   (string `eval` deadlocks inside parallel fibers, aura#4734), and only the coordinator rebinds the workspace. Compiling is serialized.
-* **Workarounds for issues found here.** Fixed-arity callers on the fiber path, because rest-args lists get corrupted in parallel bodies (aura#4733).
-  A quoted-number lint, because `and` swallows a type error in a non-last operand (aura#4735). A paren-balance guard, because `eval`/`mutate:rebind` accept
-  unbalanced source (aura#4736). Commit drills run as top-level forms, because `ast:snapshot`/`restore` get slower when nested (aura#4737): 7 min 49 s nested vs ~1 s at top level.
+* **Workarounds for issues found here.** A paren-balance guard, because `eval` still accepts an unbalanced `(lambda …` (aura#4736, reopened on d54b2117d).
+  The fixed-arity `call0..call3` callers (aura#4733) and the quoted-number lint (aura#4735) were removed on d54b2117d; both issues are fixed there. Commit drills run as top-level forms, because `ast:snapshot`/`restore` get slower when nested (aura#4737): 7 min 49 s nested vs ~1 s at top level.
 * **std/pso is a global singleton without ask/tell** (aura#4739). The harness reads `pso:population`, scores the generation itself and feeds
   `pso:step!` a lookup. There is no multi-objective support (aura#4740) and the built-in `"parallel"` mode is unbounded and unisolated (aura#4741).
 * **Synthetic labels; train-only search.** The table above is in-sample (train rows). Hold-out numbers for the swarm and the LLM arms
@@ -202,6 +201,28 @@ claims no speed-up.
 | [#4748](https://github.com/cybrid-systems/aura/issues/4748) spurious type warning for `(if (pair? r) (car r) r)` via `set-code` | bug | — |
 | [#4749](https://github.com/cybrid-systems/aura/issues/4749) `eval` of a datum silently returns `()` | bug | — |
 | [#4750](https://github.com/cybrid-systems/aura/issues/4750) #4465 still reproduces on e6f4169e0 (`<error>`, rest of file skipped, exit 0) | bug | — |
+
+### Re-check on Aura main d54b2117d (2026-10-29)
+
+Release build in host mode on 8 vCPUs. Every issue filed from here was re-run with its probe.
+
+| issue | on d54b2117d | effect here |
+|---|---|---|
+| #4733 rest args in parallel bodies | fixed (6/6) | `call0..call3` helpers removed |
+| #4734 string `eval` in fibers | fixed (5/5) | compile still on the coordinator (no workspace fork) |
+| #4735 `and` swallows a type error | fixed | quoted-number lint removed; a quoted threshold is now a `type` reject from the smoke gate |
+| #4736 lenient parens | **reopened**: plain expressions raise, but `(lambda (x) (+ x 1)` still evaluates | paren guard kept (`tests.test_search` caught it) |
+| #4737 nested snapshot/restore | fixed (~1 ms/cycle) | — |
+| #4738, #4739, #4741, #4742, #4743, #4748, #4749, #4750 | fixed | — |
+| #4740 multi-objective swarm | **reopened**: vector fitness works for grid and boids only; pso, abc and fss raise `expected Int, got Pair` | — |
+| #4744 numbers over channels | fixed (numbers, symbols and floats); pair/hash payloads rejected loudly → #4763 | string messages kept |
+| #4745 closure `<unknown>` in fibers | fixed (10/10) | retry + majority vote kept for the residual #4747 |
+| #4746 `read-from-string` | available | the token-preserving reader is kept on purpose (byte-stable knob ids) |
+| #4747 guards in parallel bodies | **reopened**: no abort any more, but 3/11 runs flip a guard verdict and 1/15 hangs | guards stay on the coordinator |
+| #4715 COW overlay | **reopened**: isolation, first-committer-wins and rollback work; no structured conflict, no stale-read check, no provenance record; #4757 | — |
+
+New issues from this pass: #4757 (`set!` dropped after an overlay commit, P0), #4758 (SIGABRT `FlatAST::is_valid` with defmacro + parallel `eval`), #4759 / #4760 (defmacro / quasiquote), #4761 (atomic RMW), #4762 (`mutate:check` misses string args), #4763 (structured channel payloads), #4764 (a workspace lambda argument runs the callee's named-let closure) and #4765 (intermittent 4-fiber deadlock).
+Tests on d54b2117d: `test_search` 11, `test_guards` 7, `test_llm_search` 14 and `test_scenario` 10 all pass. The result tables above are still from e6f4169e0.
 
 ## LLM proposes, swarm fine-tunes (hold-out evaluation, GLM-5.3-Flash vs MiniMax-M3.1-Flash)
 

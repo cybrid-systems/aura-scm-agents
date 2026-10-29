@@ -7,3 +7,6 @@
 (show 'rebind-one-short (try (mutate:rebind "f" "(define (f x) (+ x 2)" "probe") (catch (e) (list 'err e)))) ; expect error, got #t
 (eval-current) (show 'f-1 (f 1))
 (show 'rebind-two-short (try (mutate:rebind "f" "(define (f x) (+ x 4" "probe") (catch (e) (list 'err e))))
+;; d54b2117d: the cases above now raise parse-error (aura#4736), but a `lambda` missing its
+;; closing ')' still evaluates to a procedure (aura#4736 reopened):
+(show 'eval-lambda-missing-close (try (procedure? (eval "(lambda (x) (+ x 1)")) (catch (e) (list 'err e))))   ; expect parse error, got #t
