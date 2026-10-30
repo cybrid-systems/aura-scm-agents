@@ -1,0 +1,11 @@
+{
+  "lang.equal-long-lists": "https://github.com/cybrid-systems/aura/issues/4780",
+  "fibercatch.catch-sees-captured-param": "https://github.com/cybrid-systems/aura/issues/4781",
+  "fibercatch.search-wave-raising-candidate-reported": "https://github.com/cybrid-systems/aura/issues/4781",
+  "ws.restore-forward": "https://github.com/cybrid-systems/aura/issues/4782",
+  "scope.failed-body-visible-in-join": "https://github.com/cybrid-systems/aura/issues/4783",
+  "batch.retry-n-recovers-flaky": "https://github.com/cybrid-systems/aura/issues/4784",
+  "mailbox.respawn-keeps-or-refuses": "https://github.com/cybrid-systems/aura/issues/4785",
+  "spawngate.retry-after-hint-honest": "https://github.com/cybrid-systems/aura/issues/4785",
+  "par.identical-across-widths": "intermittent (1/~25 runs), not filed: no reproducing detail captured yet"
+}

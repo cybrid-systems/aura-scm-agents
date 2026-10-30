@@ -1,0 +1,285 @@
+{
+ "aura_bin": "/workspace/scmv-bin/aura",
+ "aura_rev": "69d360068",
+ "wall_secs": 57.4,
+ "files": [
+  {
+   "file": "v01_mailbox.aura",
+   "rc": 0,
+   "timed_out": false,
+   "secs": 1.06,
+   "done": true,
+   "checks": {
+    "mailbox.fifo-250": "pass",
+    "mailbox.empty-nonblocking": "pass",
+    "mailbox.wait-timeout-bounded": "pass",
+    "mailbox.structured-payload-rejected": "pass",
+    "mailbox.unknown-agent-raises": "pass",
+    "mailbox.respawn-keeps-or-refuses": "FAIL spawn returned ok=#t and mailbox now holds (queued-after) (queued-before lost)",
+    "mailbox.concurrent-8x32-no-loss": "pass",
+    "mailbox.concurrent-per-sender-fifo": "pass",
+    "mailbox.bench-all-delivered": "pass",
+    "mailbox.backpressure-reported": "pass",
+    "lang.equal-long-lists": "FAIL equal? on 100-element lists differing at index 70 => #t"
+   },
+   "bench": {
+    "mailbox.send-us": "16.6 us/msg",
+    "mailbox.recv-us": "24.6 us/msg"
+   },
+   "info": {
+    "mailbox.number-payload-arrives-as": "string \"42\"",
+    "mailbox.respawn-same-name": "second spawn ok=#t id=6; drained=(queued-after)",
+    "mailbox.spawn-after-bp-storm": "ok=#f quota-dimension=mailbox-bp retry-after-ms=50 error=AdmissionRejected: mailbox backpressure (bp_recent=44 >= threshold=32 override=false source=process)"
+   },
+   "tail": ""
+  },
+  {
+   "file": "v01b_spawn_gate.aura",
+   "rc": 0,
+   "timed_out": false,
+   "secs": 31.1,
+   "done": true,
+   "checks": {
+    "spawngate.unrelated-spawn-refused-after-storm": "pass",
+    "spawngate.recovers": "pass",
+    "spawngate.retry-after-hint-honest": "FAIL retry-after-ms=50 but admission took 30103 ms (121 refused retries)"
+   },
+   "bench": {
+    "spawngate.recovery-ms": "30103 ms"
+   },
+   "info": {
+    "spawngate.first-refusal": "ok=#f retry-after-ms=50 error=AdmissionRejected: mailbox backpressure (bp_recent=44 >= threshold=32 override=false source=process)",
+    "spawngate.refused-attempts": "121"
+   },
+   "tail": ""
+  },
+  {
+   "file": "v02_scope.aura",
+   "rc": 0,
+   "timed_out": false,
+   "secs": 7.06,
+   "done": true,
+   "checks": {
+    "scope.exactly-once-50x16": "pass",
+    "scope.runs-after-run-workflow": "pass",
+    "scope.runs-after-supervise-batch": "pass",
+    "scope.failed-body-visible-in-join": "FAIL a body raised but join-all says ok=#t status=ok; failure-ish keys: (join-fail-production-default-wired join-fail-action-taken on-join-fail-effective)",
+    "scope.join-timeout-bounded": "pass",
+    "scope.cancel-no-done-no-hang": "pass",
+    "scope.join-without-scope-raises": "pass"
+   },
+   "bench": {
+    "scope.spawn+join-us-per-task": "6271.25 us/task",
+    "scope.join-latency-1task-median-ms": "90 ms"
+   },
+   "info": {
+    "scope.join-report-with-failed-body": "ok=#t status=ok join-fail-action-taken=0 on-join-fail-effective=report-only",
+    "scope.join-timeout-report": "ms=300 ok=#f status=timeout reclaimed-count=4 cleanup-pending-count=4 bodies-started-before-timeout=0/4",
+    "scope.after-release": "ok=#t bodies-finished=0/4",
+    "scope.cancel-all": "cancel=<hash[5]> join-status=ok ms=103 step-states=(aborted aborted aborted aborted aborted aborted)",
+    "scope.join-latency-samples-ms": "(90 8 93 7 93 8 92 8 93 7)"
+   },
+   "tail": ""
+  },
+  {
+   "file": "v03_batch_workflow.aura",
+   "rc": 0,
+   "timed_out": false,
+   "secs": 5.07,
+   "done": true,
+   "checks": {
+    "batch.collect-all-counts": "pass",
+    "batch.all-ok-status": "pass",
+    "batch.retry-n-recovers-flaky": "FAIL 'retry-n :max-retries 2 did not recover a task that fails twice: (partial 0 1 1)",
+    "workflow.stage-order": "pass",
+    "workflow.stops-at-failed-stage": "pass"
+   },
+   "bench": {
+    "batch.collect-all-40-ms": "8 ms",
+    "workflow.2-stage-run-ms": "170.55 ms/workflow"
+   },
+   "info": {
+    "batch.report": "status=partial ok-count=34 err-count=6",
+    "batch.has-per-task-results": "#f",
+    "batch.collect-all+max-retries-2": "status=partial ok=0 err=1 attempts=1 (policy echoes max-retries=2)",
+    "batch.retry-n+max-retries-2": "status=partial ok=0 err=1 attempts=1"
+   },
+   "tail": ""
+  },
+  {
+   "file": "v04_workspace.aura",
+   "rc": 0,
+   "timed_out": false,
+   "secs": 0.33,
+   "done": true,
+   "checks": {
+    "ws.set-code+eval": "pass",
+    "ws.query-calls-finds-caller": "pass",
+    "ws.rebind-ok": "pass",
+    "ws.rebind-visible-to-old-callers": "pass",
+    "ws.reason-in-mutation-log": "pass",
+    "ws.source-reflects-rebind": "pass",
+    "ws.broken-rebind-rejected": "pass",
+    "ws.broken-rebind-source-unchanged": "pass",
+    "ws.broken-rebind-behaviour-unchanged": "pass",
+    "ws.unbalanced-lambda-raises-4736": "pass",
+    "ws.restore-byte-identical": "pass",
+    "ws.restore-behaviour": "pass",
+    "ws.restore-forward": "FAIL after ast:restore S0 then ast:restore S1 (+eval-current): source-matches-S1=#t but caller(0.15)=absorb (S1 code says arbitrate)",
+    "ws.restore-invalid-id-no-change": "pass",
+    "ws.cycles-flat-4737": "pass",
+    "ws.after-200-cycles-restored": "pass"
+   },
+   "bench": {
+    "ws.rebind+snapshot+restore-ms": "0.695 ms/cycle",
+    "ws.rebind-ms@10-defines": "0.3 ms",
+    "ws.snapshot-ms@10-defines": "0.2 ms",
+    "ws.restore-ms@10-defines": "0.3 ms",
+    "ws.rebind-ms@100-defines": "0.3 ms",
+    "ws.snapshot-ms@100-defines": "0.5 ms",
+    "ws.restore-ms@100-defines": "0.6 ms",
+    "ws.rebind-ms@400-defines": "0.6 ms",
+    "ws.snapshot-ms@400-defines": "2.4 ms",
+    "ws.restore-ms@400-defines": "2.8 ms"
+   },
+   "info": {
+    "ws.locate": "query:calls=(15) def-use=((11) 12)",
+    "ws.restore-forward-second-try": "arbitrate",
+    "ws.restore-invalid-id-returns": "#f",
+    "ws.cycle-ms-per-50": "(33 34 35 37)"
+   },
+   "tail": ""
+  },
+  {
+   "file": "v05_rebind_concurrent.aura",
+   "rc": 0,
+   "timed_out": false,
+   "secs": 0.26,
+   "done": true,
+   "checks": {
+    "rebindconc.no-errors-or-torn-results": "pass",
+    "rebindconc.all-rebinds-accepted": "pass",
+    "rebindconc.final-state-v2": "pass"
+   },
+   "bench": {
+    "rebindconc.calls-per-ms": "93.023 calls/ms"
+   },
+   "info": {
+    "rebindconc.outcomes": "fibers=4 wait(v1)=6534 expedite(v2)=5466 other=0 rebinds=60 rebind-errors=0 ms=129 raw=(1706|1294|0 1651|1349|0 1583|1417|0 1594|1406|0)"
+   },
+   "tail": ""
+  },
+  {
+   "file": "v06_overlay.aura",
+   "rc": 0,
+   "timed_out": false,
+   "secs": 0.09,
+   "done": true,
+   "checks": {
+    "overlay.isolation-8-fibers": "pass",
+    "overlay.main-unchanged": "pass",
+    "overlay.first-committer-wins": "pass",
+    "overlay.loser-gets-cow-conflict": "pass",
+    "overlay.disjoint-commits": "pass",
+    "overlay.set!-in-procedure-after-commit-4757": "pass",
+    "overlay.report-counts-exact": "pass"
+   },
+   "bench": {
+    "overlay.private-eval-cycle-us": "4.5 us/cycle"
+   },
+   "info": {
+    "overlay.pending-shape": "2",
+    "overlay.conflict-loser": "raised:fiber:cow-conflict: Y binding=Y winner-fiber=10474370891395145692 our-epoch=0 committed-epoch=0 our-seq=0 winner-seq=1 kind=write-write (the same binding was committed by another fiber after this overlay began)",
+    "overlay.report": "begins=15 commits=6 fast-forward=6 merged=0 conflicts=1 rollbacks=8 writes=23 active=0 read-conflicts=0"
+   },
+   "tail": ""
+  },
+  {
+   "file": "v07_channels.aura",
+   "rc": 0,
+   "timed_out": false,
+   "secs": 2.97,
+   "done": true,
+   "checks": {
+    "chan.8x500-cap16-no-loss": "pass",
+    "chan.per-producer-fifo": "pass",
+    "chan.structured-payload-4763": "pass",
+    "chan.closure-payload-rejected-loudly": "pass",
+    "chan.try-recv-empty-vs-#f-distinguishable": "pass",
+    "chan.ping-pong-correct": "pass"
+   },
+   "bench": {
+    "chan.mpsc-throughput": "108.108 msgs/ms",
+    "chan.ping-pong-rtt-us": "36.0 us/round-trip"
+   },
+   "info": {
+    "chan.try-recv-empty-returns": "\"\"",
+    "chan.try-recv-of-#f-returns": "#f",
+    "chan.try-recv-empty-vs-empty-string": "ambiguous: an empty channel and a queued \"\" both return \"\""
+   },
+   "tail": ""
+  },
+  {
+   "file": "v08_parallel_determinism.aura",
+   "rc": 0,
+   "timed_out": false,
+   "secs": 6.19,
+   "done": true,
+   "checks": {
+    "par.identical-across-widths": "pass",
+    "par.some-parallel-speedup": "pass",
+    "par.fiber-closures-capture-4745": "pass"
+   },
+   "bench": {
+    "par.32-cands-width-1-ms": "1933 ms",
+    "par.32-cands-width-2-ms": "1083 ms",
+    "par.32-cands-width-4-ms": "581 ms",
+    "par.32-cands-width-8-ms": "580 ms",
+    "par.speedup-8-vs-1": "3.333 x"
+   },
+   "info": {
+    "par.note": "box has 8 cores shared with other workers; speedup is indicative only"
+   },
+   "tail": ""
+  },
+  {
+   "file": "v09_shared_state.aura",
+   "rc": 0,
+   "timed_out": false,
+   "secs": 0.16,
+   "done": true,
+   "checks": {
+    "shared.distinct-key-hash-set-4730": "pass",
+    "shared.atomic-hash-update-4761": "pass",
+    "shared.atomic-counter": "pass",
+    "shared.atomic-update-global": "pass"
+   },
+   "bench": {
+    "shared.atomic-add-ns": "2125.0 ns/op (8 fibers)"
+   },
+   "info": {
+    "shared.plain-rmw-lost-updates": "700 of 2400 increments survived"
+   },
+   "tail": ""
+  },
+  {
+   "file": "v10_fiber_catch.aura",
+   "rc": 0,
+   "timed_out": false,
+   "secs": 3.05,
+   "done": true,
+   "checks": {
+    "fibercatch.try-body-sees-captured-param": "pass",
+    "fibercatch.catch-sees-fiber-local": "pass",
+    "fibercatch.catch-sees-captured-param": "FAIL join-error: 63:78: unbound variable: p",
+    "fibercatch.main-thread-catch-sees-param": "pass",
+    "fibercatch.search-wave-raising-candidate-reported": "FAIL coordinator would block forever: results=(1|ok 3|ok timeout)"
+   },
+   "bench": {},
+   "info": {
+    "fibercatch.search-wave-results": "(1|ok 3|ok timeout)"
+   },
+   "tail": ""
+  }
+ ]
+}

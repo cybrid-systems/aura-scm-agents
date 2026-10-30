@@ -1,0 +1,48 @@
+;; V3 orch:supervise-batch + orch:compose-workflow 'collect-all (aura/agents.aura forensics
+;; isolates a malformed record) and orch:run-workflow (aura/supervisor.aura input validation).
+;; 3.1 collect-all over 40 tasks, every 7th fails -> counts exact, results positional
+(define N 40)
+(define tasks (list->vector (map (lambda (i) (lambda () (if (= (modulo i 7) 3) (error (format "malformed record ~a" i)) (* i 10)))) (range N))))
+(define nfail (count-if (lambda (i) (= (modulo i 7) 3)) (range N)))
+(define t0 (monotonic-ms))
+(define sb (orch:supervise-batch tasks (orch:compose-workflow 'collect-all :max-retries 0)))
+(define sb-ms (- (monotonic-ms) t0))
+(info! "batch.report" (format "status=~a ok-count=~a err-count=~a" (hg sb "status" "?") (hg sb "ok-count" "?") (hg sb "err-count" "?")))
+(check! "batch.collect-all-counts" (and (equal? (hg sb "status" "") "partial") (= (hg sb "ok-count" -1) (- N nfail)) (= (hg sb "err-count" -1) nfail))
+        (format "status=~a ok=~a err=~a want ok=~a err=~a" (hg sb "status" "?") (hg sb "ok-count" "?") (hg sb "err-count" "?") (- N nfail) nfail))
+(info! "batch.has-per-task-results" (hash-has-key? sb "results"))
+(bench! "batch.collect-all-40-ms" sb-ms "ms")
+;; 3.2 all-ok batch -> status ok
+(define sb2 (orch:supervise-batch (list->vector (map (lambda (i) (lambda () i)) (range 16))) (orch:compose-workflow 'collect-all :max-retries 0)))
+(check! "batch.all-ok-status" (and (equal? (hg sb2 "status" "") "ok") (= (hg sb2 "ok-count" -1) 16) (= (hg sb2 "err-count" -1) 0)) (format "~a ~a ~a" (hg sb2 "status" "?") (hg sb2 "ok-count" "?") (hg sb2 "err-count" "?")))
+;; 3.3 retries: :max-retries is accepted (and echoed by compose-workflow) for 'collect-all
+;; but only 'retry-n acts on it; check both so a policy author knows which one retries
+(define (flaky-batch pol)
+  (let* ((c (atomic:counter 0))
+         (r (orch:supervise-batch (vector (lambda () (if (< (atomic:add! c 1) 3) (error "flaky") 'ok))) pol)))
+    (list (hg r "status" "?") (hg r "ok-count" -1) (hg r "err-count" -1) (atomic:counter-value c))))
+(define ca (flaky-batch (orch:compose-workflow 'collect-all :max-retries 2)))
+(info! "batch.collect-all+max-retries-2" (format "status=~a ok=~a err=~a attempts=~a (policy echoes max-retries=~a)" (car ca) (cadr ca) (caddr ca) (list-ref ca 3) (hg (orch:compose-workflow 'collect-all :max-retries 2) "max-retries" "?")))
+(define rn (safe (lambda () (flaky-batch (orch:compose-workflow 'retry-n :max-retries 2))) (list "error" -1 -1 -1)))
+(info! "batch.retry-n+max-retries-2" (format "status=~a ok=~a err=~a attempts=~a" (car rn) (cadr rn) (caddr rn) (list-ref rn 3)))
+(check! "batch.retry-n-recovers-flaky" (= (cadr rn) 1) (format "'retry-n :max-retries 2 did not recover a task that fails twice: ~a" rn))
+;; 3.4 run-workflow: stages run in order; a failing stage stops the pipeline
+(define LOG (list))
+(define (log! x) (set! LOG (cons x LOG)))
+(define wf (orch:run-workflow (vector (hash "tasks" (vector (lambda () (log! "s1a") 1) (lambda () (log! "s1b") 2)))
+                                      (hash "tasks" (vector (lambda () (log! "s2") 3)))
+                                      (hash "tasks" (vector (lambda () (log! "s3") 4))))))
+(define order (reverse LOG))
+(check! "workflow.stage-order" (and (hg wf "ok" #f) (= (hg wf "stages-ok" -1) 3) (= (length order) 4) (equal? (list-ref order 2) "s2") (equal? (list-ref order 3) "s3"))
+        (format "ok=~a stages-ok=~a order=~a" (hg wf "ok" "?") (hg wf "stages-ok" "?") order))
+(set! LOG (list))
+(define wf2 (orch:run-workflow (vector (hash "tasks" (vector (lambda () (log! "s1") 1)))
+                                       (hash "tasks" (vector (lambda () (error "graph check failed"))))
+                                       (hash "tasks" (vector (lambda () (log! "s3") 3))))))
+(check! "workflow.stops-at-failed-stage" (and (not (hg wf2 "ok" #t)) (= (hg wf2 "stages-ok" -1) 1) (= (hg wf2 "stages-failed" -1) 1) (not (member "s3" LOG)))
+        (format "ok=~a stages-ok=~a stages-failed=~a stopped-at=~a log=~a" (hg wf2 "ok" "?") (hg wf2 "stages-ok" "?") (hg wf2 "stages-failed" "?") (hg wf2 "stopped-at" "?") (reverse LOG)))
+;; 3.5 throughput: 20 workflows of 2 stages
+(define t2 (monotonic-ms))
+(for-each (lambda (i) (orch:run-workflow (vector (hash "tasks" (vector (lambda () 1) (lambda () 2))) (hash "tasks" (vector (lambda () 3)))))) (range 20))
+(bench! "workflow.2-stage-run-ms" (r3 (/ (- (monotonic-ms) t2) 20.0)) "ms/workflow")
+(emit "done" "ok")

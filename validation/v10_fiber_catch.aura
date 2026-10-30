@@ -1,0 +1,25 @@
+;; V10 try/catch inside fiber bodies. aura/search.aura relies on it: every candidate fiber does
+;;   (fiber:spawn (lambda () (channel:send RCH (try (eval-candidate p id src cc)
+;;                                                 (catch (e) (format "~a|reject|..." id ...))))))
+;; where id is a parameter of the enclosing (lambda (id cc) ...). If the catch handler cannot
+;; see id, a candidate that raises kills its fiber and the coordinator blocks in channel:recv.
+(define (j f) (try (begin (fiber:join f) "ok") (catch (e) (format "join-error: ~a" e))))
+(define (in-try-body p) (fiber:spawn (lambda () (try p (catch (e) 0)))))
+(check! "fibercatch.try-body-sees-captured-param" (equal? (j (in-try-body 1)) "ok") "")
+(define (in-catch-let) (fiber:spawn (lambda () (let ((loc 7)) (try (error "x") (catch (e) loc))))))
+(check! "fibercatch.catch-sees-fiber-local" (equal? (j (in-catch-let)) "ok") "")
+(define (in-catch-param p) (fiber:spawn (lambda () (try (error "x") (catch (e) p)))))
+(define r1 (j (in-catch-param 3)))
+(check! "fibercatch.catch-sees-captured-param" (equal? r1 "ok") r1)
+(define (main-catch p) (try (error "x") (catch (e) p)))
+(check! "fibercatch.main-thread-catch-sees-param" (equal? (main-catch 4) 4) "")
+;; the search.aura worker pattern, with a candidate that raises
+(define RCH (channel:create 8))
+(define (eval-candidate id) (if (= id 2) (error "candidate crashed") (format "~a|ok" id)))
+(define fids (map (lambda (id) (fiber:spawn (lambda () (channel:send RCH (try (eval-candidate id) (catch (e) (format "~a|reject|worker:~a" id e)))) id)))
+                  (list 1 2 3)))
+(define got (map (lambda (x) (recv-within RCH 3000)) (list 1 2 3)))
+(info! "fibercatch.search-wave-results" got)
+(check! "fibercatch.search-wave-raising-candidate-reported" (= (count-if (lambda (g) (eq? g 'timeout)) got) 0)
+        (format "coordinator would block forever: results=~a" got))
+(emit "done" "ok")

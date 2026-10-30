@@ -1,0 +1,92 @@
+;; V1 agent mailboxes (orch:spawn-agent :attach-mailbox / orch:agent-send / orch:agent-recv)
+;; as aura/runtime.aura uses them: string payloads "kind|from|corr|body", drained with :wait #f.
+(define (spawn! name) (orch:spawn-agent name (lambda () 'idle) :attach-mailbox #t))
+(define (drain name)
+  (let loop ((acc (list)))
+    (let ((m (orch:agent-recv name :wait #f)))
+      (if (hg m "ok" #f) (loop (cons (hash-ref m "payload") acc)) (reverse acc)))))
+
+;; spawn every agent first: a backpressure storm later trips the process-wide spawn gate
+(spawn! "fifo") (spawn! "dup") (spawn! "sink") (spawn! "bench") (spawn! "bp")
+;; 1.1 FIFO + exactly-once for 250 messages (mailbox capacity is 256)
+(define N 250)
+(define sends (map (lambda (i) (orch:agent-send "fifo" (string-append "m|" (str i)))) (range N)))
+(define got (drain "fifo"))
+(check! "mailbox.fifo-250" (and (all? (lambda (r) (hg r "ok" #f)) sends) (list=? got (map (lambda (i) (string-append "m|" (str i))) (range N))))
+        (format "got ~a msgs" (length got)))
+;; 1.2 empty non-blocking recv
+(define e (orch:agent-recv "fifo" :wait #f))
+(check! "mailbox.empty-nonblocking" (and (not (hg e "ok" #t)) (eq? (hg e "empty" #f) #t)) (format "~a" e))
+;; 1.3 bounded wait on an empty mailbox returns after ~timeout
+(define t0 (monotonic-ms))
+(define ew (orch:agent-recv "fifo" :wait #t :timeout-ms 200))
+(define dt (- (monotonic-ms) t0))
+(check! "mailbox.wait-timeout-bounded" (and (not (hg ew "ok" #t)) (>= dt 150) (< dt 2000)) (format "dt=~a ms" dt))
+;; 1.4 payload contract: strings ok; list/hash rejected with status=unsupported-payload and NOT enqueued
+(define rl (orch:agent-send "fifo" (list 1 2)))
+(define rh (orch:agent-send "fifo" (hash "a" 1)))
+(check! "mailbox.structured-payload-rejected"
+        (and (not (hg rl "ok" #t)) (equal? (hg rl "status" "") "unsupported-payload")
+             (not (hg rh "ok" #t)) (equal? (hg rh "status" "") "unsupported-payload")
+             (null? (drain "fifo")))
+        (format "list=~a hash=~a" (hg rl "status" "?") (hg rh "status" "?")))
+(orch:agent-send "fifo" 42)
+(info! "mailbox.number-payload-arrives-as" (let ((p (car (drain "fifo")))) (if (string? p) (format "string ~s" p) (format "number ~a" p))))
+;; 1.5 unknown agent fails loudly (a typo in an agent name must not drop mail silently)
+(check! "mailbox.unknown-agent-raises"
+        (and (err-of (lambda () (orch:agent-send "no-such-agent" "x"))) (err-of (lambda () (orch:agent-recv "no-such-agent" :wait #f))) #t)
+        "send/recv to an unknown name did not raise")
+;; 1.6 re-registering a name must not lose queued mail (the demo spawns every agent once per run;
+;; a restarted agent with the same name is the obvious supervisor move)
+(orch:agent-send "dup" "queued-before")
+(define dup2 (spawn! "dup"))
+(orch:agent-send "dup" "queued-after")
+(define dupgot (drain "dup"))
+(info! "mailbox.respawn-same-name" (format "second spawn ok=~a id=~a; drained=~a" (hg dup2 "ok" "?") (hg dup2 "id" "?") dupgot))
+(check! "mailbox.respawn-keeps-or-refuses"
+        (or (not (hg dup2 "ok" #f)) (equal? dupgot (list "queued-before" "queued-after")))
+        (format "spawn returned ok=#t and mailbox now holds ~a (queued-before lost)" dupgot))
+;; 1.7 concurrent senders: 8 fibers x 250 messages into one mailbox; nothing lost or duplicated,
+;; per-sender order kept
+(define K 8) (define M 32)
+(define done (channel:create 16))
+(define fs (map (lambda (k) (spawn-reporting done (str k)
+                  (lambda () (for-each (lambda (i) (orch:agent-send "sink" (format "~a|~a" k i))) (range M)) "sent")))
+                (range K)))
+(define acks (map (lambda (f) (channel:recv done)) fs))
+(for-each fiber:join fs)
+(define cg (drain "sink"))
+(define (seq-of k) (map (lambda (p) (string->number (cadr (split-on p "|")))) (filter (lambda (p) (string=? (car (split-on p "|")) (str k))) cg)))
+(check! "mailbox.concurrent-8x32-no-loss" (and (all? (lambda (a) (equal? a "sent")) acks) (= (length cg) (* K M)) (= (distinct-count cg) (* K M)))
+        (format "acks=~a received=~a distinct=~a" acks (length cg) (distinct-count cg)))
+(check! "mailbox.concurrent-per-sender-fifo" (all? (lambda (k) (list=? (seq-of k) (range M))) (range K)) "a sender's messages were reordered")
+;; bench: send+recv round trip on the coordinator
+(define B 250) (define ROUNDS 40)
+(define send-ms 0) (define recv-ms 0) (define recvd 0)
+(for-each (lambda (r)
+  (let ((t1 (monotonic-ms)))
+    (for-each (lambda (i) (orch:agent-send "bench" "kind|from|1|body")) (range B))
+    (let ((t2 (monotonic-ms)))
+      (set! recvd (+ recvd (length (drain "bench"))))
+      (set! send-ms (+ send-ms (- t2 t1)))
+      (set! recv-ms (+ recv-ms (- (monotonic-ms) t2)))))) (range ROUNDS))
+(check! "mailbox.bench-all-delivered" (= recvd (* B ROUNDS)) (format "~a/~a" recvd (* B ROUNDS)))
+(bench! "mailbox.send-us" (r3 (/ (* 1000.0 send-ms) (* B ROUNDS))) "us/msg")
+(bench! "mailbox.recv-us" (r3 (/ (* 1000.0 recv-ms) (max recvd 1))) "us/msg")
+(drain "fifo")
+;; 1.8 backpressure contract: the 257th undrained message is refused with status=backpressure,
+;; the first 256 are intact and in order
+(define bps (map (lambda (i) (orch:agent-send "bp" (str i))) (range 300)))
+(define bpok (count-if (lambda (r) (hg r "ok" #f)) bps))
+(define bpst (hg (list-ref bps 299) "status" "?"))
+(define bpgot (drain "bp"))
+(check! "mailbox.backpressure-reported" (and (= bpok 256) (equal? bpst "backpressure") (list=? bpgot (map str (range 256))))
+        (format "accepted=~a status=~a drained=~a" bpok bpst (length bpgot)))
+(define sp (orch:spawn-agent "after-bp" (lambda () 'idle) :attach-mailbox #t))
+(info! "mailbox.spawn-after-bp-storm" (format "ok=~a quota-dimension=~a retry-after-ms=~a error=~a" (hg sp "ok" "?") (hg sp "quota-dimension" "-") (hg sp "retry-after-ms" "-") (hg sp "error" "-")))
+(emit "done" "ok")
+
+;; Claim used throughout the repo: equal? compares metric/result lists structurally.
+(define eqa (range 100))
+(define eqb (append (range 70) (list -1) (list-tail (range 100) 71)))
+(check! "lang.equal-long-lists" (not (equal? eqa eqb)) (format "equal? on 100-element lists differing at index 70 => ~a" (equal? eqa eqb)))

@@ -621,3 +621,61 @@ Status re-checked on Aura main e6f4169e0 (2026-10-28), 20 runs per probe with `A
 waiting variant (`agent-recv :wait #t :timeout-ms 2000`) passes 10/10.
 
 The inline-recompute and `sym=?` workarounds have been removed; lost tasks are audited, never hidden. 绕行代码已删除：丢失任务只审计、不隐藏。
+
+## Aura 能力验证 (`validation/`)
+
+本仓库依赖的 Aura 能力（编排邮箱、scope、supervise-batch/run-workflow、workspace EDSL、fiber + COW overlay、channel、原子操作）在 **Aura main `69d360068`**（`ghcr.io/cybrid-systems/dev:v1.0.9`）上逐条做了声明 → 测试的验证，包括故障注入和基准测试。结果：**62 项通过，8 项失败**；失败项都已提交 issue（`validation/known_failures.json`）。
+
+运行（仓库根目录；Aura stdout 写管道时是块缓冲，`runone.py` 用 pty 运行）：
+```bash
+VAL_JOBS=1 VAL_TIMEOUT=200 AURA_BIN=/path/to/aura python3 validation/run_validation.py [--allow-known]
+# 输出 validation/results.json 和 validation/results.md；有非已知失败时退出码非 0
+```
+
+### 声明 → 测试 → 结果
+
+| 本仓库依赖的声明 | 用例（文件 / check） | 结果 |
+|---|---|---|
+| 邮箱 FIFO、非阻塞空 recv、限时等待 | v01 `mailbox.fifo-250` `empty-nonblocking` `wait-timeout-bounded` | ✅ |
+| 非字符串 payload 被拒、未知 agent 报错 | v01 `mailbox.*-rejected` `unknown-agent-raises` | ✅（数字会被转成字符串 "42"） |
+| 8 个 fiber × 32 条并发发送不丢、按发送方 FIFO | v01 `mailbox.concurrent-8x32-*` | ✅ |
+| 满 256 条后报 backpressure | v01 `mailbox.backpressure-reported` | ✅ |
+| supervisor 同名重建 agent 安全 | v01 `mailbox.respawn-keeps-or-refuses` | ❌ 返回 ok，旧消息丢失 → [#4785](https://github.com/cybrid-systems/aura/issues/4785) |
+| 准入拒绝的 retry-after 可信 | v01b `spawngate.retry-after-hint-honest` | ❌ 提示 50 ms，实际约 30 s，且整个进程都被阻塞 → #4785 |
+| `equal?` 结构比较（指标列表） | v01 `lang.equal-long-lists` | ❌ 超过 64 个元素直接返回 #t → [#4780](https://github.com/cybrid-systems/aura/issues/4780) |
+| scope-spawn/join-all 恰好一次（50 轮 × 16） | v02 `scope.exactly-once-*` | ✅ |
+| scope 在 run-workflow、supervise-batch 之后仍可用 | v02 | ✅ |
+| join 超时有界；cancel-all 不挂起、没有 done | v02 | ✅ |
+| join 报告能反映 body 失败 | v02 `scope.failed-body-visible-in-join` | ❌ 仍报 ok:#t status:ok → [#4783](https://github.com/cybrid-systems/aura/issues/4783)；超时回收的任务之后只执行了 0–2/4 |
+| supervise-batch collect-all 计数、run-workflow 阶段顺序、失败即停 | v03 | ✅ |
+| `'retry-n :max-retries 2` 能恢复偶发失败 | v03 `batch.retry-n-recovers-flaky` | ❌ 只执行 1 次 → [#4784](https://github.com/cybrid-systems/aura/issues/4784) |
+| query:calls / def-use 定位、mutate:rebind 带原因、门控、snapshot/restore、mutation-log | v04（16 项） | ✅ 15 项（#4736、#4737 复查通过） |
+| 向前 ast:restore（S0→S1）生效 | v04 `ws.restore-forward` | ❌ 源码已是 S1，行为仍是 S0 → [#4782](https://github.com/cybrid-systems/aura/issues/4782) |
+| 运行中 rebind，调用方只看到 v1/v2，不出错 | v05 | ✅（#4757、#4763） |
+| fiber 私有 COW overlay 隔离、冲突检测、回滚 | v06 | ✅（#4730、#4761） |
+| channel MPSC 不丢、关闭语义、闭包 payload 明确报错 | v07 | ✅（try-recv 无法区分空 channel 和 ""） |
+| 宽度 1/2/4/8 的结果相同，并行加速 | v08 | ✅（约 25 次运行里偶发 1 次不一致，未复现出细节，未提交） |
+| atomic:add! / hash-update! 并发正确 | v09 | ✅（普通读改写会丢更新，属预期） |
+| fiber 内 catch 能兜住错误、协调者不挂起 | v10 `fibercatch.*` | ❌ catch 里看不到外层参数 → [#4781](https://github.com/cybrid-systems/aura/issues/4781) |
+
+### 基准（8 vCPU 共享机器，仅供参考）
+
+| 项 | 值 |
+|---|---|
+| 邮箱 send / recv | 16.6 / 24.6 µs/msg |
+| spawn+join（50×16） | 6.27 ms/task；单任务 join 中位数约 90 ms（样本在约 92 ms 和约 8 ms 之间交替 → 约 100 ms 轮询下限，#4783） |
+| supervise-batch collect-all 40 任务 | 8 ms |
+| 2 阶段 run-workflow | 约 170 ms |
+| rebind+snapshot+restore | 0.70 ms/cycle；400 个 define 时 snapshot 2.4 ms，restore 2.8 ms |
+| rebind 期间调用吞吐 | 约 93 calls/ms |
+| overlay 私有 eval 周期 | 4.5 µs |
+| channel MPSC / ping-pong RTT | 约 108 msgs/ms / 36 µs |
+| 32 个候选，宽度 1/2/4/8 | 1933 / 1083 / 581 / 580 ms（多次运行加速 2.5–3.3×） |
+| atomic:add!（8 fiber） | 约 2.1 µs/op |
+
+### 对本仓库的风险
+
+- **`aura/search.aura:386-389`**：fiber 体的 `catch` 里用到了 `map` lambda 的参数 `id`。受 #4781 影响，候选一旦抛错，catch 本身会报 unbound variable，fiber 静默死亡，协调者在 `channel:recv` 上永久阻塞。规避方法：在 fiber lambda 里先 `(let ((id id)) ...)` 重新绑定（`validation/lib.aura` 的 `spawn-reporting` 就是这样做的）。
+- 指标或结果用 `equal?` 比较时，超过 64 个元素的列表会误判相等（#4780）。长列表请用逐元素比较。
+- scope 失败不可见（#4783）：目前依靠黑板上的 `scope-task-missing` 审计兜底，不要只看 join 状态。
+- 不要依赖 `'retry-n` 重试（#4784），也不要用同名重建 agent 做恢复（#4785）。

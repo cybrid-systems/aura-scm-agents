@@ -1,0 +1,34 @@
+;; V9 shared state from fibers. aura-scm-agents keeps all shared state in the coordinator;
+;; this checks what is safe if a fiber does write: distinct-key hash-set! (#4730) and same-key
+;; read-modify-write with and without the atomic:* primitives (#4761).
+(define F 8) (define K 300)
+(define done (channel:create 16))
+;; 9.1 distinct keys
+(define H (hash))
+(define fs (map (lambda (f) (spawn-reporting done (str f) (lambda () (for-each (lambda (i) (hash-set! H (format "~a:~a" f i) i)) (range K)) "ok"))) (range F)))
+(define o1 (map (lambda (x) (channel:recv done)) fs)) (for-each fiber:join fs)
+(check! "shared.distinct-key-hash-set-4730" (and (all? (lambda (o) (equal? o "ok")) o1) (= (length (hash-keys H)) (* F K))) (format "outs=~a keys=~a" o1 (length (hash-keys H))))
+;; 9.2 same key, plain read-modify-write (expected to lose updates; documents the hazard)
+(define C (hash "n" 0))
+(define fs2 (map (lambda (f) (spawn-reporting done (str f) (lambda () (for-each (lambda (i) (hash-set! C "n" (+ 1 (hash-ref C "n"))) (if (= (modulo i 50) 0) (fiber:yield) #t)) (range K)) "ok"))) (range F)))
+(define o2 (map (lambda (x) (channel:recv done)) fs2)) (for-each fiber:join fs2)
+(info! "shared.plain-rmw-lost-updates" (format "~a of ~a increments survived" (hash-ref C "n") (* F K)))
+;; 9.3 atomic:hash-update! on the same key: no lost updates
+(define A (hash "n" 0))
+(define fs3 (map (lambda (f) (spawn-reporting done (str f) (lambda () (for-each (lambda (i) (atomic:hash-update! A "n" (lambda (v) (+ v 1))) (if (= (modulo i 50) 0) (fiber:yield) #t)) (range K)) "ok"))) (range F)))
+(define o3 (map (lambda (x) (channel:recv done)) fs3)) (for-each fiber:join fs3)
+(check! "shared.atomic-hash-update-4761" (and (all? (lambda (o) (equal? o "ok")) o3) (= (hash-ref A "n") (* F K))) (format "outs=~a n=~a want ~a" o3 (hash-ref A "n") (* F K)))
+;; 9.4 atomic:counter / atomic:add!
+(define CT (atomic:counter 0))
+(define t0 (monotonic-ms))
+(define fs4 (map (lambda (f) (spawn-reporting done (str f) (lambda () (for-each (lambda (i) (atomic:add! CT 1)) (range 2000)) "ok"))) (range F)))
+(define o4 (map (lambda (x) (channel:recv done)) fs4)) (for-each fiber:join fs4)
+(define cms (- (monotonic-ms) t0))
+(check! "shared.atomic-counter" (= (atomic:counter-value CT) (* F 2000)) (format "~a" (atomic:counter-value CT)))
+(bench! "shared.atomic-add-ns" (r3 (/ (* 1000000.0 cms) (* F 2000))) "ns/op (8 fibers)")
+;; 9.5 atomic:update! on a top-level define
+(define G 0)
+(define fs5 (map (lambda (f) (spawn-reporting done (str f) (lambda () (for-each (lambda (i) (atomic:update! "G" (lambda (v) (+ v 1)))) (range K)) "ok"))) (range F)))
+(define o5 (map (lambda (x) (channel:recv done)) fs5)) (for-each fiber:join fs5)
+(check! "shared.atomic-update-global" (and (all? (lambda (o) (equal? o "ok")) o5) (= G (* F K))) (format "outs=~a G=~a" o5 G))
+(emit "done" "ok")

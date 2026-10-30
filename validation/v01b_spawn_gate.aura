@@ -1,0 +1,25 @@
+;; V1b process-wide spawn admission gate after a mailbox backpressure storm.
+;; aura-scm-agents spawns its agents up front, so a storm in one run blocks a supervisor that
+;; respawns an agent (or starts a second scenario in the same process).
+(define (spawn! name) (orch:spawn-agent name (lambda () 'idle) :attach-mailbox #t))
+(spawn! "hot")
+(for-each (lambda (i) (orch:agent-send "hot" "x")) (range 300))   ; 44 backpressure events
+(let loop () (if (hg (orch:agent-recv "hot" :wait #f) "ok" #f) (loop) #t))  ; fully drained
+(define t0 (monotonic-ms))
+(define first (spawn! "cold-0"))
+(define hint (hg first "retry-after-ms" -1))
+(info! "spawngate.first-refusal" (format "ok=~a retry-after-ms=~a error=~a" (hg first "ok" "?") hint (hg first "error" "-")))
+(check! "spawngate.unrelated-spawn-refused-after-storm" (not (hg first "ok" #t)) "gate did not trip")
+;; poll the spawn every 250 ms (sleeping on an empty mailbox) until admitted, 45 s cap
+(define (poll k)
+  (let ((h (spawn! (format "cold-~a" k))))
+    (cond ((hg h "ok" #f) (list (- (monotonic-ms) t0) k))
+          ((> (- (monotonic-ms) t0) 45000) (list -1 k))
+          (else (orch:agent-recv "hot" :wait #t :timeout-ms 250) (poll (+ k 1))))))
+(define rec (poll 1))
+(bench! "spawngate.recovery-ms" (car rec) "ms")
+(info! "spawngate.refused-attempts" (cadr rec))
+(check! "spawngate.recovers" (> (car rec) 0) "still refused after 45 s")
+(check! "spawngate.retry-after-hint-honest" (or (< hint 0) (>= (* 2 hint) (car rec)))
+        (format "retry-after-ms=~a but admission took ~a ms (~a refused retries)" hint (car rec) (cadr rec)))
+(emit "done" "ok")
