@@ -624,7 +624,7 @@ The inline-recompute and `sym=?` workarounds have been removed; lost tasks are a
 
 ## Aura 能力验证 (`validation/`)
 
-本仓库依赖的 Aura 能力（编排邮箱、scope、supervise-batch/run-workflow、workspace EDSL、fiber + COW overlay、channel、原子操作）逐条做了声明 → 测试的验证，包括故障注入和基准测试。首轮在 **Aura main `69d360068`**（dev:v1.0.9）上：62 项通过，8 项失败，失败项都已提交 issue（#4780–#4785）。**复验（Aura main `a029752df`，dev:v1.1.1）：70/70 通过**，这些 issue 均已在上游修复，`validation/known_failures.json` 里只剩一条未提交的偶发项。
+本仓库依赖的 Aura 能力（编排邮箱、scope、supervise-batch/run-workflow、workspace EDSL、fiber + COW overlay、channel、原子操作）逐条做了声明 → 测试的验证，包括故障注入和基准测试。首轮在 **Aura main `69d360068`**（dev:v1.0.9）上：62 项通过，8 项失败，失败项都已提交 issue（#4780–#4785）。**复验（Aura main `a029752df`，dev:v1.1.1）：70/70 通过**；**第二次复验（Aura main `d44d1077e`，dev:v1.1.1）：仍是 70/70 通过**，这些 issue 均已在上游修复，`validation/known_failures.json` 里只剩一条未提交的偶发项。
 
 运行（仓库根目录；Aura stdout 写管道时是块缓冲，`runone.py` 用 pty 运行）：
 ```bash
