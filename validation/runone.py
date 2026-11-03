@@ -4,13 +4,23 @@ group on timeout, and keep every line printed before the hang.  Used by run_vali
 import os, pty, select, signal, subprocess, sys, time
 
 
+def _env(extra):
+    # Default: the configuration CI uses (AURA_SANDBOX=off, AURA_PIPELINE_STRICT=0).
+    # SCM_PROD_DEFAULT=1 runs the production default instead: both variables unset.
+    e = {**os.environ, "AURA_SANDBOX": "off", "AURA_PIPELINE_STRICT": "0", **(extra or {})}
+    if os.environ.get("SCM_PROD_DEFAULT") == "1":
+        e.pop("AURA_SANDBOX", None)
+        e.pop("AURA_PIPELINE_STRICT", None)
+    return e
+
+
 def run(path, timeout=120.0, env=None, cwd=None):
     aura = os.environ["AURA_BIN"]
     m, s = pty.openpty()
     t0 = time.monotonic()
     p = subprocess.Popen([aura, "--load", path], stdin=subprocess.DEVNULL, stdout=s, stderr=s,
                          start_new_session=True, cwd=cwd,
-                         env={**os.environ, "AURA_SANDBOX": "off", "AURA_PIPELINE_STRICT": "0", **(env or {})})
+                         env=_env(env))
     os.close(s)
     buf, timed_out = bytearray(), False
     while True:
