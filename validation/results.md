@@ -1,18 +1,18 @@
-# validation results (aura 04c69b1b5)
+# validation results (aura ?)
 
 | file | done | secs | pass | fail |
 |---|---|---|---|---|
-| v01_mailbox.aura | yes | 1.09 | 11 | 0 |
-| v01b_spawn_gate.aura | yes | 31.1 | 3 | 0 |
-| v02_scope.aura | yes | 1.06 | 7 | 0 |
+| v01_mailbox.aura | yes | 1.05 | 11 | 0 |
+| v01b_spawn_gate.aura | yes | 31.08 | 3 | 0 |
+| v02_scope.aura | yes | 1.05 | 7 | 0 |
 | v03_batch_workflow.aura | yes | 1.05 | 5 | 0 |
-| v04_workspace.aura | yes | 0.34 | 16 | 0 |
-| v05_rebind_concurrent.aura | yes | 0.24 | 3 | 0 |
-| v06_overlay.aura | yes | 0.14 | 7 | 0 |
-| v07_channels.aura | yes | 1.69 | 6 | 0 |
-| v08_parallel_determinism.aura | yes | 7.89 | 3 | 0 |
-| v09_shared_state.aura | yes | 0.24 | 4 | 0 |
-| v10_fiber_catch.aura | yes | 0.06 | 5 | 0 |
+| v04_workspace.aura | yes | 0.33 | 16 | 0 |
+| v05_rebind_concurrent.aura | yes | 0.12 | 3 | 0 |
+| v06_overlay.aura | yes | 0.06 | 7 | 0 |
+| v07_channels.aura | yes | 1.68 | 6 | 0 |
+| v08_parallel_determinism.aura | yes | 7.01 | 3 | 0 |
+| v09_shared_state.aura | yes | 0.19 | 4 | 0 |
+| v10_fiber_catch.aura | yes | 0.05 | 5 | 0 |
 
 ## checks
 
@@ -91,46 +91,46 @@
 
 | id | value |
 |---|---|
-| `mailbox.send-us` | 10.7 us/msg |
-| `mailbox.recv-us` | 14.3 us/msg |
-| `spawngate.recovery-ms` | 30096 ms |
-| `scope.spawn+join-us-per-task` | 356.25 us/task |
-| `scope.join-latency-1task-median-ms` | 2 ms |
+| `mailbox.send-us` | 11.1 us/msg |
+| `mailbox.recv-us` | 14.5 us/msg |
+| `spawngate.recovery-ms` | 30095 ms |
+| `scope.spawn+join-us-per-task` | 241.25 us/task |
+| `scope.join-latency-1task-median-ms` | 1 ms |
 | `batch.collect-all-40-ms` | 8 ms |
-| `workflow.2-stage-run-ms` | 2.55 ms/workflow |
-| `ws.rebind+snapshot+restore-ms` | 0.98 ms/cycle |
+| `workflow.2-stage-run-ms` | 2.35 ms/workflow |
+| `ws.rebind+snapshot+restore-ms` | 0.97 ms/cycle |
 | `ws.rebind-ms@10-defines` | 0.2 ms |
-| `ws.snapshot-ms@10-defines` | 0.0 ms |
-| `ws.restore-ms@10-defines` | 0.3 ms |
+| `ws.snapshot-ms@10-defines` | 0.1 ms |
+| `ws.restore-ms@10-defines` | 0.2 ms |
 | `ws.rebind-ms@100-defines` | 0.3 ms |
 | `ws.snapshot-ms@100-defines` | 0.0 ms |
 | `ws.restore-ms@100-defines` | 0.5 ms |
-| `ws.rebind-ms@400-defines` | 0.7 ms |
+| `ws.rebind-ms@400-defines` | 0.6 ms |
 | `ws.snapshot-ms@400-defines` | 0.0 ms |
 | `ws.restore-ms@400-defines` | 2.4 ms |
-| `rebindconc.calls-per-ms` | 78.431 calls/ms |
-| `overlay.private-eval-cycle-us` | 7.0 us/cycle |
-| `chan.mpsc-throughput` | 78.431 msgs/ms |
-| `chan.ping-pong-rtt-us` | 27.0 us/round-trip |
-| `par.32-cands-width-1-ms` | 1912 ms |
-| `par.32-cands-width-2-ms` | 1674 ms |
-| `par.32-cands-width-4-ms` | 1191 ms |
-| `par.32-cands-width-8-ms` | 1059 ms |
-| `par.speedup-8-vs-1` | 1.805 x |
-| `shared.atomic-add-ns` | 3875.0 ns/op (8 fibers) |
+| `rebindconc.calls-per-ms` | 164.384 calls/ms |
+| `overlay.private-eval-cycle-us` | 5.0 us/cycle |
+| `chan.mpsc-throughput` | 90.909 msgs/ms |
+| `chan.ping-pong-rtt-us` | 28.0 us/round-trip |
+| `par.32-cands-width-1-ms` | 1937 ms |
+| `par.32-cands-width-2-ms` | 1396 ms |
+| `par.32-cands-width-4-ms` | 909 ms |
+| `par.32-cands-width-8-ms` | 825 ms |
+| `par.speedup-8-vs-1` | 2.348 x |
+| `shared.atomic-add-ns` | 2812.5 ns/op (8 fibers) |
 
 ## observations
 
 - `mailbox.number-payload-arrives-as`: string "42"
 - `mailbox.respawn-same-name`: second spawn ok=#t id=6; drained=(queued-before queued-after)
 - `mailbox.spawn-after-bp-storm`: ok=#f quota-dimension=mailbox-bp retry-after-ms=29991 error=AdmissionRejected: mailbox backpressure (bp_recent=44 >= threshold=32 override=false source=process)
-- `spawngate.first-refusal`: ok=#f retry-after-ms=29999 error=AdmissionRejected: mailbox backpressure (bp_recent=44 >= threshold=32 override=false source=process)
+- `spawngate.first-refusal`: ok=#f retry-after-ms=29998 error=AdmissionRejected: mailbox backpressure (bp_recent=44 >= threshold=32 override=false source=process)
 - `spawngate.refused-attempts`: 121
 - `scope.join-report-with-failed-body`: ok=#f status=partial join-fail-action-taken=0 on-join-fail-effective=report-only
-- `scope.join-timeout-report`: ms=300 ok=#f status=timeout reclaimed-count=4 cleanup-pending-count=4 bodies-started-before-timeout=0/4
+- `scope.join-timeout-report`: ms=301 ok=#f status=timeout reclaimed-count=4 cleanup-pending-count=4 bodies-started-before-timeout=0/4
 - `scope.after-release`: ok=#t bodies-finished=0/4
-- `scope.cancel-all`: cancel=<hash[5]> join-status=ok ms=4 step-states=(#f aborted aborted aborted aborted aborted)
-- `scope.join-latency-samples-ms`: (2 1 2 2 2 1 3 1 2 2)
+- `scope.cancel-all`: cancel=<hash[5]> join-status=ok ms=2 step-states=(#f aborted aborted aborted aborted aborted)
+- `scope.join-latency-samples-ms`: (1 2 1 1 1 1 2 1 1 1)
 - `batch.report`: status=partial ok-count=34 err-count=6
 - `batch.has-per-task-results`: #f
 - `batch.collect-all+max-retries-2`: status=partial ok=0 err=1 attempts=1 (policy echoes max-retries=2)
@@ -138,14 +138,14 @@
 - `ws.locate`: query:calls=(15) def-use=((11) 12)
 - `ws.restore-forward-second-try`: arbitrate
 - `ws.restore-invalid-id-returns`: #f
-- `ws.cycle-ms-per-50`: (33 49 53 61)
-- `rebindconc.outcomes`: fibers=4 wait(v1)=11271 expedite(v2)=729 other=0 rebinds=60 rebind-errors=0 ms=153 raw=(2843|157|0 2807|193|0 2800|200|0 2821|179|0)
+- `ws.cycle-ms-per-50`: (34 48 54 58)
+- `rebindconc.outcomes`: fibers=4 wait(v1)=11030 expedite(v2)=970 other=0 rebinds=60 rebind-errors=0 ms=73 raw=(2735|265|0 2740|260|0 2772|228|0 2783|217|0)
 - `overlay.pending-shape`: 2
-- `overlay.conflict-loser`: raised:fiber:cow-conflict: Y binding=Y winner-fiber=14013408712399736141 our-epoch=0 committed-epoch=0 our-seq=0 winner-seq=1 kind=write-write (the same binding was committed by another fiber after this overlay began)
+- `overlay.conflict-loser`: raised:fiber:cow-conflict: Y binding=Y winner-fiber=11876753068582057346 our-epoch=0 committed-epoch=0 our-seq=0 winner-seq=1 kind=write-write (the same binding was committed by another fiber after this overlay began)
 - `overlay.report`: begins=15 commits=6 fast-forward=6 merged=0 conflicts=1 rollbacks=8 writes=23 active=0 read-conflicts=0
 - `chan.try-recv-empty-returns`: ""
 - `chan.try-recv-of-#f-returns`: #f
 - `chan.try-recv-empty-vs-empty-string`: ambiguous: an empty channel and a queued "" both return ""
 - `par.note`: box has 8 cores shared with other workers; speedup is indicative only
-- `shared.plain-rmw-lost-updates`: 449 of 2400 increments survived
-- `fibercatch.search-wave-results`: (1|ok 2|reject|worker:candidate crashed 3|ok)
+- `shared.plain-rmw-lost-updates`: 612 of 2400 increments survived
+- `fibercatch.search-wave-results`: (1|ok 3|ok 2|reject|worker:candidate crashed)

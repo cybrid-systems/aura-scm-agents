@@ -624,7 +624,7 @@ The inline-recompute and `sym=?` workarounds have been removed; lost tasks are a
 
 ## Aura 能力验证 (`validation/`)
 
-本仓库依赖的 Aura 能力（编排邮箱、scope、supervise-batch/run-workflow、workspace EDSL、fiber + COW overlay、channel、原子操作）逐条做了声明 → 测试的验证，包括故障注入和基准测试。首轮在 **Aura main `69d360068`**（dev:v1.0.9）上：62 项通过，8 项失败，失败项都已提交 issue（#4780–#4785）。**复验（Aura main `a029752df`，dev:v1.1.1）：70/70 通过**；**第二次复验（Aura main `d44d1077e`，dev:v1.1.1）：仍是 70/70 通过**；**第三次复验（Aura main `217a7690e`，dev:v1.1.1）：70/70 通过**；**第四次复验（Aura main `bf93198e3`，dev:v1.1.1，默认配置，`AURA_SANDBOX=off`）：70/70 通过**，**第五次复验（Aura main `04c69b1b5`，dev:v1.1.1，`AURA_SANDBOX=off`）：70/70 通过**，这些 issue 均已在上游修复，`validation/known_failures.json` 里只剩一条未提交的偶发项。
+本仓库依赖的 Aura 能力（编排邮箱、scope、supervise-batch/run-workflow、workspace EDSL、fiber + COW overlay、channel、原子操作）逐条做了声明 → 测试的验证，包括故障注入和基准测试。首轮在 **Aura main `69d360068`**（dev:v1.0.9）上：62 项通过，8 项失败，失败项都已提交 issue（#4780–#4785）。**复验（Aura main `a029752df`，dev:v1.1.1）：70/70 通过**；**第二次复验（Aura main `d44d1077e`，dev:v1.1.1）：仍是 70/70 通过**；**第三次复验（Aura main `217a7690e`，dev:v1.1.1）：70/70 通过**；**第四次复验（Aura main `bf93198e3`，dev:v1.1.1，默认配置，`AURA_SANDBOX=off`）：70/70 通过**，**第五次复验（Aura main `04c69b1b5`，dev:v1.1.1，`AURA_SANDBOX=off`）：70/70 通过**，**第六次复验（Aura main `420b8d577`，dev:v1.1.1，`AURA_SANDBOX=off`）：70/70 通过**，这些 issue 均已在上游修复，`validation/known_failures.json` 里只剩一条未提交的偶发项。
 
 运行（仓库根目录；Aura stdout 写管道时是块缓冲，`runone.py` 用 pty 运行）：
 ```bash
@@ -632,11 +632,12 @@ VAL_JOBS=1 VAL_TIMEOUT=200 AURA_BIN=/path/to/aura python3 validation/run_validat
 # 输出 validation/results.json 和 validation/results.md；有非已知失败时退出码非 0
 ```
 
-`runone.py` 默认按 CI 的配置运行（`AURA_SANDBOX=off`、`AURA_PIPELINE_STRICT=0`）。设 `SCM_PROD_DEFAULT=1` 则两者都不设，即 Aura 的生产默认（Restricted）。04c69b1b5 上生产默认是 28 项通过、6 项失败、6 个文件中途退出，原因几乎都是 Restricted 的设计限制，不是 Aura 缺陷：
+`runone.py` 默认按 CI 的配置运行（`AURA_SANDBOX=off`、`AURA_PIPELINE_STRICT=0`）。设 `SCM_PROD_DEFAULT=1` 则两者都不设，即 Aura 的生产默认（Restricted）。420b8d577 上生产默认是 28 项通过、6 项失败、6 个文件中途退出（和 04c69b1b5 相同）。原因都是 Restricted 的设计限制，不是 Aura 缺陷：
 - 用例本身用了 `hash-set!` 或 workspace `set-code`，没有 Mutate 授权（#4575）；
-- 已有存活 agent 时，再 spawn 一个不带 `:region-key` 的 agent 会被拒（#4280）。
+- 已有存活 agent 时，再 spawn 一个不带 `:region-key` 的 agent 会被拒（#4280）；
+- `orch:run-workflow` 的多任务 stage 不带 region-key 时返回 `invalid`，并给出 `serialized-reason` 为 `missing-or-overlap-keys`（cybrid-systems/aura#4878 已修：原先没有原因，带 region-key 也不执行）。
 
-唯一的例外是 `workflow.stage-order`：`orch:run-workflow` 的多任务 stage 在生产默认下一律返回 `invalid`，见 cybrid-systems/aura#4878。要让本仓库在生产默认下运行，用例需要改为不写共享 hash，并给并发 spawn 加上 region-key。
+要让本仓库在生产默认下运行，用例需要改为不写共享 hash，并给并发 spawn 和 workflow 任务加上 region-key。
 
 ### 声明 → 测试 → 结果
 
